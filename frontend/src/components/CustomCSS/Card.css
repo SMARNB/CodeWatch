@@ -1,0 +1,78 @@
+/* Card Styles */
+.card-container {
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 20px;
+    width: 300px; /* Default width */
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Customize Size */
+.card-small {
+    width: 200px;
+    padding: 15px;
+}
+
+.card-medium {
+    width: 350px;
+    padding: 25px;
+}
+
+.card-large {
+    width: 450px;
+    padding: 30px;
+}
+
+/* Customize Background Colors */
+.card-primary {
+    background-color: #2563eb; /* Blue */
+    color: white;
+}
+
+.card-secondary {
+    background-color: #1e293b; /* Dark Blue */
+    color: white;
+}
+
+.card-warning {
+    background-color: #f59e0b; /* Yellow */
+    color: white;
+}
+
+.card-danger {
+    background-color: #dc2626; /* Red */
+    color: white;
+}
+
+/* Text Styling */
+.card-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.card-content {
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* Hover Effect */
+.card-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Positioning */
+.card-center {
+    margin: 0 auto;
+}
+
+.card-left {
+    margin-left: 0;
+}
+
+.card-right {
+    margin-left: auto;
+}

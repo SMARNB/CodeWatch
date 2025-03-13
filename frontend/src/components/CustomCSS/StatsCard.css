@@ -1,0 +1,47 @@
+/* StatsCard Container */
+.stats-card {
+    padding: 16px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.849);
+    text-align: center;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    margin-bottom: 100px;
+}
+
+/* Hover Effect */
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Title Styling */
+.stats-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #374151; /* Gray-700 */
+    margin-bottom: 5px;
+}
+
+/* Value Styling */
+.stats-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1f2937; /* Gray-800 */
+}
+
+/* Percentage Styling */
+.stats-percentage {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* Increase (Green) */
+.stats-increase {
+    color: #10b981; /* Tailwind Green-500 */
+}
+
+/* Decrease (Red) */
+.stats-decrease {
+    color: #ef4444; /* Tailwind Red-500 */
+}
