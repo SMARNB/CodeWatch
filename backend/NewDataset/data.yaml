@@ -1,0 +1,13 @@
+train: C:\Users\38622\OneDrive\Documents\FYP\backend\NewDataset\train
+val: C:\Users\38622\OneDrive\Documents\FYP\backend\NewDataset\valid
+test: C:\Users\38622\OneDrive\Documents\FYP\backend\NewDataset\test
+
+nc: 4
+names: ['hard_hat', 'no_hard_hat', 'no_head_wear', 'person']
+
+roboflow:
+  workspace: iaespecializacion
+  project: hard_hat_detector_seg
+  version: 4
+  license: MIT
+  url: https://universe.roboflow.com/iaespecializacion/hard_hat_detector_seg/dataset/4
