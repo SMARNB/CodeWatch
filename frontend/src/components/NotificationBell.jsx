@@ -193,7 +193,19 @@ const NotificationBell = ({
             {/* Footer */}
             {notificationList.length > 0 && (
               <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                <button className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium text-center">
+                <button 
+                  onClick={() => {
+                    // Get userType from localStorage to determine the correct notifications route
+                    const currentUserType = localStorage.getItem('userType') || 'admin';
+                    const notificationsRoute = currentUserType === 'admin' ? '/admin/notifications' :
+                                             currentUserType === 'ssd' ? '/ssd/notifications' :
+                                             '/department-head/notifications';
+                    // Open notifications page in a new tab
+                    window.open(notificationsRoute, '_blank');
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium text-center"
+                >
                   View all notifications
                 </button>
               </div>

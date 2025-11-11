@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TextButton from '../components/TextButton';
+import backgroundEllipse from '../assets/background.svg';
+import logoImage from '../assets/Logo.svg';
 
 const SignUpPage = ({ userType: propUserType }) => {
   const navigate = useNavigate();
@@ -105,14 +107,11 @@ const SignUpPage = ({ userType: propUserType }) => {
     return titles[userType] || 'Sign Up';
   };
 
-  const imgEllipse9 = "http://localhost:3845/assets/69bd5562076a8da41563ffca97f57699d1b0caeb.svg";
-  const imgGroup1000001689 = "http://localhost:3845/assets/5734e3b2cc45b448a25ee3c66b3839f4aec268f5.svg";
-
   return (
     <div className="bg-[#f2f3ff] relative size-full min-h-screen flex items-center justify-center" data-name="Admin Sign Up">
       {/* Background Ellipse */}
       <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-        <img alt="" className="block max-w-none size-full" src={imgEllipse9} />
+        <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
       {/* Sign Up Card */}
@@ -121,7 +120,7 @@ const SignUpPage = ({ userType: propUserType }) => {
         
         {/* Logo */}
         <div className="absolute h-[54px] left-[1px] top-[8px] w-[58px]">
-          <img alt="" className="block max-w-none size-full" src={imgGroup1000001689} />
+          <img alt="" className="block max-w-none size-full" src={logoImage} />
         </div>
 
         {/* Title */}

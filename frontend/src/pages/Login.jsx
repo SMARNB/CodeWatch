@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Logo from '../components/Logo';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Heading from '../components/Heading';
 import TextButton from '../components/TextButton';
+import backgroundEllipse from '../assets/background.svg';
+import logoImage from '../assets/Logo.svg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -59,9 +60,19 @@ const Login = () => {
         'department-head': '/department-head/dashboard'
       };
 
+      // Extract display name from email (part before @)
+      const emailName = formData.email.split('@')[0];
+      const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+
       // Store user info in localStorage (replace with proper auth management)
       localStorage.setItem('userType', userType);
       localStorage.setItem('userEmail', formData.email);
+      localStorage.setItem('userName', formData.email); // Store email as userName for Navbar
+      localStorage.setItem('userDisplayName', displayName); // Store display name for avatar initials
+      localStorage.setItem('username', formData.email); // Alternative key for compatibility
+
+      // Dispatch custom event to notify Navbar of user data update
+      window.dispatchEvent(new Event('userDataUpdated'));
 
       // Navigate to appropriate dashboard
       navigate(dashboardRoutes[userType] || '/dashboard');
@@ -94,7 +105,7 @@ const Login = () => {
     <div className="bg-[#f2f3ff] relative size-full min-h-screen flex items-center justify-center" data-name="Admin Log In">
       {/* Background Ellipse */}
       <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-        <img alt="" className="block max-w-none size-full" src="http://localhost:3845/assets/69bd5562076a8da41563ffca97f57699d1b0caeb.svg" />
+        <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
       {/* Login Card */}
@@ -103,7 +114,7 @@ const Login = () => {
         
         {/* Logo */}
         <div className="absolute h-[54px] left-[1px] top-[8px] w-[58px]">
-          <img alt="" className="block max-w-none size-full" src="http://localhost:3845/assets/5734e3b2cc45b448a25ee3c66b3839f4aec268f5.svg" />
+          <img alt="" className="block max-w-none size-full" src={logoImage} />
         </div>
 
         {/* Title */}

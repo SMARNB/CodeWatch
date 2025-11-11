@@ -1,33 +1,70 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import './App.css';
+
+// Page imports
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import PasswordResetPage from './pages/PasswordResetPage';
 import SignUpPage from './pages/SignUp';
 import NotificationsPage from './pages/NotificationsPage';
-import AdminHome from './pages/Home/AdminHome';
 import DashboardPage from './pages/DashboardPage';
-import './App.css';
+import NotificationDetailsPage from './pages/NotificationDetailsPage';
+import ManageViolationsPage from './pages/ManageViolationsPage';
+import PreviousReportsPage from './pages/PreviousReportsPage';
+import GenerateAnalyticsPage from './pages/GenerateAnalyticsPage';
+import ReportDetailsPage from './pages/ReportDetailsPage';
 
-// Placeholder components for dashboard pages
-const AdminDashboardPage = () => (
-  <div className="min-h-screen bg-[#f2f3ff] flex items-center justify-center">
-    <div className="bg-white rounded-[16px] shadow-[5px_5px_52px_-12px_rgba(51,51,51,0.24)] p-8 text-center">
-      <h1 className="text-2xl font-bold text-[#3f4299] mb-4">Admin Dashboard</h1>
-      <p className="text-[#505050]">Admin dashboard page - to be implemented</p>
-    </div>
-  </div>
-);
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
 
-const DepartmentHeadDashboardPage = () => (
-  <div className="min-h-screen bg-[#f2f3ff] flex items-center justify-center">
-    <div className="bg-white rounded-[16px] shadow-[5px_5px_52px_-12px_rgba(51,51,51,0.24)] p-8 text-center">
-      <h1 className="text-2xl font-bold text-[#3f4299] mb-4">Department Head Dashboard</h1>
-      <p className="text-[#505050]">Department Head dashboard page - to be implemented</p>
-    </div>
-  </div>
-);
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-6">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
+            <details className="whitespace-pre-wrap">
+              <summary className="cursor-pointer text-gray-700 font-semibold mb-2">
+                Error Details
+              </summary>
+              <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm">
+                {this.state.error && this.state.error.toString()}
+                {this.state.errorInfo && this.state.errorInfo.componentStack}
+              </pre>
+            </details>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 
 // Placeholder components for new routes
 const FeedbackPage = () => (
@@ -39,65 +76,44 @@ const FeedbackPage = () => (
   </div>
 );
 
-const NotificationDetailsPage = () => (
+
+const AddCameraPage = () => (
   <div className="min-h-screen bg-[#f2f3ff] flex items-center justify-center">
     <div className="bg-white rounded-[16px] shadow-[5px_5px_52px_-12px_rgba(51,51,51,0.24)] p-8 text-center">
-      <h1 className="text-2xl font-bold text-[#3f4299] mb-4">Notification Details</h1>
-      <p className="text-[#505050]">Notification details page - to be implemented</p>
+      <h1>Add Camera Page - To Be Implemented</h1>
     </div>
   </div>
 );
 
 
-// Component to handle role selection and navigation
-const RoleSelectorWrapper = () => {
-  const handleRoleSelect = (role) => {
-    // This will be handled by the routing system
-    console.log('Role selected:', role);
-  };
-
-  return <RoleSelectionPage onRoleSelect={handleRoleSelect} />;
-};
-
 // Main App Component
 function App() {
-  // State to simulate current logged-in user's role
-  const [userRole, setUserRole] = useState('Admin');
-
   return (
-    <BrowserRouter>
-      <div className="min-h-screen">
-        {/* Navbar - shown on all pages except role selection and auth pages */}
-        <Routes>
-          <Route path="/" element={<RoleSelectorWrapper />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<PasswordResetPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/admin/notifications" element={<NotificationsPage userType="admin" />} />
-          <Route path="/admin/home" element={<AdminHome />} />
-          
-          {/* Department Head Routes */}
-          <Route path="/depthead/dashboard" element={<DepartmentHeadDashboardPage />} />
-          <Route path="/depthead/notifications" element={<NotificationsPage userType="department-head" />} />
-          
-          {/* SSD Routes */}
-          <Route path="/ssd/dashboard" element={<DashboardPage />} />
-          <Route path="/ssd/notifications" element={<NotificationsPage userType="ssd" />} />
-          
-          {/* Legacy routes for backward compatibility */}
-          <Route path="/department-head/dashboard" element={<DepartmentHeadDashboardPage />} />
-          <Route path="/department-head/notifications" element={<NotificationsPage userType="department-head" />} />
-          
-          {/* New Routes */}
-          <Route path="/feedback" element={<FeedbackPage />} />
-          <Route path="/notification-details" element={<NotificationDetailsPage />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <div className="min-h-screen">
+          <Routes>
+            <Route path="/" element={<RoleSelectionPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<PasswordResetPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/admin/dashboard" element={<DashboardPage />} />
+            <Route path="/admin/notifications" element={<NotificationsPage userType="admin" />} />
+            <Route path="/ssd/notifications" element={<NotificationsPage userType="ssd" />} />
+            <Route path="/department-head/dashboard" element={<DashboardPage />} />
+            <Route path="/department-head/notifications" element={<NotificationsPage userType="department-head" />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
+            <Route path="/notification-details" element={<NotificationDetailsPage />} />
+            <Route path="/add-camera" element={<AddCameraPage />} />
+            <Route path="/admin/manage-violations" element={<ManageViolationsPage />} />
+            <Route path="/reports" element={<PreviousReportsPage />} />
+            <Route path="/report-details" element={<ReportDetailsPage />} />
+            <Route path="/analytics" element={<GenerateAnalyticsPage />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

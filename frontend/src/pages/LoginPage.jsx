@@ -51,9 +51,19 @@ const LoginPage = () => {
         'department-head': '/department-head/dashboard'
       };
 
+      // Extract display name from email (part before @)
+      const emailName = formData.email.split('@')[0];
+      const displayName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+
       // Store user info in localStorage (replace with proper auth management)
       localStorage.setItem('userType', formData.userType);
       localStorage.setItem('userEmail', formData.email);
+      localStorage.setItem('userName', formData.email); // Store email as userName for Navbar
+      localStorage.setItem('userDisplayName', displayName); // Store display name for avatar initials
+      localStorage.setItem('username', formData.email); // Alternative key for compatibility
+
+      // Dispatch custom event to notify Navbar of user data update
+      window.dispatchEvent(new Event('userDataUpdated'));
 
       // Navigate to appropriate dashboard
       navigate(dashboardRoutes[formData.userType] || '/dashboard');

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Logo from '../components/Logo';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Heading from '../components/Heading';
 import TextButton from '../components/TextButton';
+import backgroundEllipse from '../assets/background.svg';
+import logoImage from '../assets/Logo.svg';
 
 const RoleSelectionPage = ({ onRoleSelect }) => {
   const navigate = useNavigate();
@@ -29,7 +27,12 @@ const RoleSelectionPage = ({ onRoleSelect }) => {
     <div className="bg-[#f2f3ff] relative size-full min-h-screen flex items-center justify-center" data-name="Admin-User Type">
       {/* Background Ellipse */}
       <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-        <img alt="" className="block max-w-none size-full" src="http://localhost:3845/assets/69bd5562076a8da41563ffca97f57699d1b0caeb.svg" />
+        <img 
+          alt="" 
+          className="block max-w-none size-full" 
+          src={backgroundEllipse}
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
       </div>
 
       {/* Role Selection Card */}
@@ -38,12 +41,17 @@ const RoleSelectionPage = ({ onRoleSelect }) => {
         
         {/* Logo */}
         <div className="absolute h-[54px] left-[2px] top-[6px] w-[58px]">
-          <img alt="" className="block max-w-none size-full" src="http://localhost:3845/assets/5734e3b2cc45b448a25ee3c66b3839f4aec268f5.svg" />
+          <img 
+            alt="" 
+            className="block max-w-none size-full" 
+            src={logoImage}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
         </div>
 
         {/* Code Watch Title */}
-        <div className="absolute aspect-[298/61] flex flex-col font-[var(--static/display-medium/font,'Roboto:Bold',_sans-serif)] font-bold justify-center leading-[0] left-[15.46%] right-[7.73%] text-[#3f4299] text-[48px] text-center top-[calc(50%-165px)] tracking-[var(--static/display-medium/tracking,0px)] translate-y-[-50%]">
-          <p className="leading-[var(--static/display-medium/line-height,52px)]">Code Watch</p>
+        <div className="absolute aspect-[298/61] flex flex-col font-bold justify-center leading-[0] left-[15.46%] right-[7.73%] text-[#3f4299] text-[48px] text-center top-[calc(50%-165px)] translate-y-[-50%]">
+          <p className="leading-[52px]">Code Watch</p>
         </div>
 
         {/* User Type Heading */}

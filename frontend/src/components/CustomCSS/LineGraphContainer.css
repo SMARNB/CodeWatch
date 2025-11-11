@@ -1,0 +1,49 @@
+/* LineGraphContainer Custom Styles */
+/* Additional custom styles for LineGraphContainer component */
+/* Most styling is handled by Tailwind CSS classes in the component */
+
+/* Chart.js canvas styling overrides */
+.line-graph-container canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Custom grid line styling */
+.line-graph-container .chartjs-render-monitor {
+  position: relative;
+}
+
+/* Responsive Design Overrides */
+@media (max-width: 768px) {
+  /* Mobile-specific adjustments if needed */
+  .line-graph-mobile {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Small mobile adjustments */
+  .line-graph-sm-mobile {
+    min-height: 300px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .line-graph-print {
+    break-inside: avoid;
+  }
+}
+
+/* Loading animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+

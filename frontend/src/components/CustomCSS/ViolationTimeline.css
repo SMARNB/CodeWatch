@@ -1,0 +1,42 @@
+/* ViolationTimeline Custom Styles */
+/* Additional custom styles for ViolationTimeline component */
+/* Most styling is handled by Tailwind CSS classes in the component */
+
+/* Heatmap block styling */
+.violation-timeline-block {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.violation-timeline-block:hover {
+  opacity: 0.8;
+}
+
+/* Responsive Design Overrides */
+@media (max-width: 1024px) {
+  .violation-timeline-container {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile-specific adjustments if needed */
+  .violation-timeline-mobile {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Small mobile adjustments */
+  .violation-timeline-sm-mobile {
+    font-size: 12px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .violation-timeline-print {
+    break-inside: avoid;
+  }
+}
+
+

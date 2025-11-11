@@ -1,50 +1,33 @@
 import React from 'react';
-import './CustomCSS/Logo.css';
+import CodeWatchLogo from '../assets/logo.svg';
 
-const Logo = ({ 
-  size = 'default', 
-  variant = 'default', 
-  className = '',
-  showText = true,
-  text = 'Code Watch'
-}) => {
+const Logo = ({ size = 'md', showText = true, className = '' }) => {
+  // Size mapping for logo image and text (increased by 10px)
   const sizeClasses = {
-    small: 'w-8 h-8',
-    default: 'w-12 h-12',
-    large: 'w-16 h-16',
-    xl: 'w-20 h-20'
+    sm: { img: 'h-[34px] w-[34px]', text: 'text-sm' },
+    md: { img: 'h-[42px] w-[42px]', text: 'text-lg' },
+    lg: { img: 'h-[50px] w-[50px]', text: 'text-xl' },
+    xl: { img: 'h-[74px] w-[74px]', text: 'text-2xl' },
+    // Support legacy size names for backward compatibility
+    small: { img: 'h-[34px] w-[34px]', text: 'text-sm' },
+    default: { img: 'h-[64px] w-[64px]', text: 'text-lg' }, // 80% of navbar height (80px)
+    large: { img: 'h-[50px] w-[50px]', text: 'text-xl' }
   };
 
-  const textSizeClasses = {
-    small: 'text-sm',
-    default: 'text-lg',
-    large: 'text-xl',
-    xl: 'text-2xl'
-  };
-
-  // Figma image URL
-  const figmaImage = "http://localhost:3845/assets/c077738cabbb16a6cb7491609cbe75b8b0352852.svg";
+  // Get size classes, default to 'md' if size not found
+  const currentSize = sizeClasses[size] || sizeClasses.md;
 
   return (
-    <div className={`logo-container flex items-center space-x-3 ${className}`}>
-      {/* Logo Icon */}
-      <div className={`logo-icon ${sizeClasses[size]} flex items-center justify-center`}>
-        <img 
-          src={figmaImage}
-          alt="Code Watch Logo"
-          className="w-full h-full object-contain"
-          data-node-id="2017:875"
-        />
-      </div>
-      
-      {/* Logo Text */}
+    <div className={`flex items-center space-x-2 ${className}`}>
+      <img 
+        src={CodeWatchLogo} 
+        alt="Code Watch Logo" 
+        className={`${currentSize.img} object-contain block`}
+      />
       {showText && (
-        <div className={`logo-text ${textSizeClasses[size]} font-bold text-gray-800`}>
-          <span className="text-primary-600">{text.split(' ')[0]}</span>
-          {text.split(' ').length > 1 && (
-            <span className="text-gray-600 ml-1">{text.split(' ').slice(1).join(' ')}</span>
-          )}
-        </div>
+        <span className={`${currentSize.text} font-bold text-[#3f4299]`}>
+          Code Watch
+        </span>
       )}
     </div>
   );

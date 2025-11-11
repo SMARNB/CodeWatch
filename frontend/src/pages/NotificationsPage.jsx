@@ -1,14 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NotificationItem from '../components/NotificationItem';
 import UserProfileCard from '../components/UserProfileCard';
 import Button from '../components/Button';
 import Logo from '../components/Logo';
+import FeedbackModal from '../components/FeedbackModal';
+import backgroundEllipse from '../assets/background.svg';
 
-const NotificationsPage = ({ userType = 'admin' }) => {
+const NotificationsPage = ({ userType: propUserType }) => {
   const navigate = useNavigate();
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [user, setUser] = useState(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+
+  // Get userType from prop or localStorage
+  const userType = propUserType || localStorage.getItem('userType') || 'admin';
+
+  // Get user data from localStorage
+  useEffect(() => {
+    const getUserData = () => {
+      // Retrieve user email
+      const userEmail = localStorage.getItem('userEmail') || 
+                       localStorage.getItem('userName') || 
+                       localStorage.getItem('username') || 
+                       '';
+      
+      // Retrieve user display name
+      const userDisplayName = localStorage.getItem('userDisplayName') || 
+                              localStorage.getItem('userFullName') ||
+                              localStorage.getItem('displayName') ||
+                              localStorage.getItem('fullName') ||
+                              userEmail.split('@')[0] ||
+                              'User';
+      
+      // Retrieve employee ID if available, or generate a simple default
+      const employeeId = localStorage.getItem('employeeId') || 
+                        localStorage.getItem('employeeID') ||
+                        (() => {
+                          const prefix = userType === 'admin' ? 'ADM' : 
+                                        userType === 'ssd' ? 'SSD' : 'DHD';
+                          // Simple fallback - use first 3 chars of email or default
+                          if (userEmail) {
+                            const emailPart = userEmail.split('@')[0];
+                            const numbers = emailPart.match(/\d/g);
+                            if (numbers && numbers.length > 0) {
+                              return `${prefix}${numbers.slice(-3).join('').padStart(3, '0')}`;
+                            }
+                          }
+                          return `${prefix}001`;
+                        })();
+
+      // Create user object
+      const userData = {
+        name: userDisplayName,
+        email: userEmail || (userType === 'admin' ? 'admin@company.com' : 
+                             userType === 'ssd' ? 'ssd@company.com' : 'depthead@company.com'),
+        employeeId: employeeId,
+      };
+
+      setUser(userData);
+    };
+
+    // Initial fetch
+    getUserData();
+
+    // Listen for storage changes
+    const handleStorageChange = (e) => {
+      const userDataKeys = [
+        'userName', 'userEmail', 'username', 'user_email',
+        'userFullName', 'userDisplayName', 'displayName', 'fullName',
+        'employeeId', 'employeeID'
+      ];
+      
+      if (userDataKeys.includes(e.key)) {
+        getUserData();
+      }
+    };
+
+    // Listen for custom storage events
+    const handleCustomStorage = () => {
+      getUserData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('userDataUpdated', handleCustomStorage);
+    
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userDataUpdated', handleCustomStorage);
+    };
+  }, [userType]);
 
   // Get dynamic heading based on userType
   const getPageHeading = () => {
@@ -66,15 +149,6 @@ const NotificationsPage = ({ userType = 'admin' }) => {
     }
   ];
 
-  // Dummy user data for UserProfileCard
-  const dummyUser = {
-    name: userType === 'admin' ? 'Admin User' : 
-          userType === 'ssd' ? 'SSD User' : 'Department Head User',
-    email: userType === 'admin' ? 'admin@company.com' : 
-           userType === 'ssd' ? 'ssd@company.com' : 'depthead@company.com',
-    employeeId: userType === 'admin' ? 'ADM001' : 
-                userType === 'ssd' ? 'SSD001' : 'DHD001'
-  };
 
   // Filter notifications based on selected filter and search term
   const filteredNotifications = dummyNotifications.filter(notification => {
@@ -89,8 +163,8 @@ const NotificationsPage = ({ userType = 'admin' }) => {
 
   // Navigation handlers
   const handleFeedbackClick = () => {
-    // Navigate to feedback modal or page
-    navigate('/feedback', { state: { userType } });
+    // Open feedback modal
+    setShowFeedbackModal(true);
   };
 
   const handleLogoutClick = () => {
@@ -101,20 +175,23 @@ const NotificationsPage = ({ userType = 'admin' }) => {
   };
 
   const handleNotificationClick = (notification) => {
-    // Navigate to notification details page
-    navigate('/notification-details', { 
-      state: { 
-        notification, 
-        userType 
-      } 
-    });
+    // Store notification data in sessionStorage for the new tab
+    const notificationKey = `notification_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    sessionStorage.setItem(notificationKey, JSON.stringify({
+      notification,
+      userType
+    }));
+    
+    // Open notification details page in a new tab
+    const url = `/notification-details?key=${encodeURIComponent(notificationKey)}`;
+    window.open(url, '_blank');
   };
 
   return (
     <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
       {/* Background Ellipse */}
       <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-        <img alt="" className="block max-w-none size-full" src="http://localhost:3845/assets/69bd5562076a8da41563ffca97f57699d1b0caeb.svg" />
+        <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
       {/* Navbar */}
@@ -163,11 +240,28 @@ const NotificationsPage = ({ userType = 'admin' }) => {
           <div className="w-80 flex-shrink-0" style={{ marginRight: '100px', marginLeft: '100px' }}>
             <div style={{ marginTop: '0px' }}>
               <div style={{ marginBottom: '20px' }}>
-                <UserProfileCard user={dummyUser} />
+                {user && <UserProfileCard user={user} />}
               </div>
               
               {/* Buttons below UserProfileCard */}
               <div className="mt-6 space-y-4">
+                {/* Manage Violations Button - Only for Admin */}
+                {userType === 'admin' && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <Button
+                      variant="primary"
+                      size="default"
+                      className="w-full"
+                      onClick={() => {
+                        // Navigate to manage violations page or open modal
+                        navigate('/admin/manage-violations');
+                      }}
+                    >
+                      Manage Violations
+                    </Button>
+                  </div>
+                )}
+                
                 {/* Violation Feedback Button */}
                 <div style={{ marginBottom: '20px' }}>
                   <Button
@@ -196,6 +290,11 @@ const NotificationsPage = ({ userType = 'admin' }) => {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
+      )}
     </div>
   );
 };
