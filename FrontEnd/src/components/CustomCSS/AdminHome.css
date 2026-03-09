@@ -1,0 +1,164 @@
+.dashboard-container {
+    margin-top: 150px;
+    flex-grow: 1;
+    height: 100vh;
+    width: 100vw;
+    background-color: #f4f5f7;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    background-color: #1a1a2e;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Collapsed Sidebar */
+.sidebar.closed {
+    transform: translateX(-100%);
+}
+
+/* Dashboard Content */
+.dashboard-content {
+    flex-grow: 1;
+    padding: 0px;
+    transition: margin-left 0.3s ease-in-out;
+}
+
+.dashboard-content.collapsed {
+    margin-left: 70px;
+}
+
+.MyCards {
+    margin: 100px 0px;
+}
+
+/* Chart Containers */
+.chart-container{
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.chart-container {
+    width: 300px;
+    height: 300px;
+}
+
+.chart-container2 {
+    width: 380px;
+    height: 210px;
+}
+
+/* Video Container */
+.video-container {
+    width: 100%;
+    padding: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 50px;
+    margin-bottom: 50px;
+}
+.video-container2 {
+    padding: 30px;
+    height: 500px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+/* ─────────────────────────────────────────────────── */
+/* RESPONSIVE DASHBOARD */
+/* ─────────────────────────────────────────────────── */
+
+/* Large Screens (Above 1200px) */
+@media (min-width: 1200px) {
+    .dashboard-container {
+        margin-top: 120px;
+    }
+    .sidebar {
+        width: 250px;
+    }
+    .dashboard-content {
+        margin-left: 250px;
+    }
+}
+
+/* Medium Screens (Tablets, 768px - 1199px) */
+@media (max-width: 1199px) {
+    .dashboard-container {
+        margin-top: 100px;
+    }
+    .sidebar {
+        width: 200px;
+    }
+    .dashboard-content {
+        margin-left: 200px;
+    }
+    .MyCards {
+        margin: 50px 0;
+    }
+}
+
+/* Small Screens (Mobile, Below 768px) */
+@media (max-width: 768px) {
+    .dashboard-container {
+        margin-top: 80px;
+    }
+    .sidebar {
+        width: 70px;
+        overflow: hidden;
+    }
+    .sidebar.closed {
+        width: 0;
+        transform: translateX(-100%);
+    }
+    .dashboard-content {
+        margin-left: 70px;
+        padding: 10px;
+    }
+    .dashboard-content.collapsed {
+        margin-left: 0;
+    }
+    .chart-container, .chart-container2 {
+        flex-direction: column;
+        padding: 5px;
+        width: 100%;
+    }
+
+    .video-container {
+        gap: 10px;
+    }
+}
+
+/* Extra Small Screens (Below 480px) */
+@media (max-width: 480px) {
+    .dashboard-container {
+        margin-top: 60px;
+    }
+    .sidebar {
+        width: 0;
+        transform: translateX(-100%);
+    }
+    .dashboard-content {
+        margin-left: 0;
+        padding: 5px;
+    }
+    .chart-container, .chart-container2 {
+        width: 100%;
+    }
+    .video-container {
+        flex-direction: column;
+        align-items: center;
+    }
+}

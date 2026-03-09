@@ -1,0 +1,13 @@
+path: ../NewDataset  # This points to the folder relative to where you run the command
+train: train/images
+val: valid/images
+
+nc: 4
+names: ['hard_hat', 'no_hard_hat', 'no_head_wear', 'person']
+
+roboflow:
+  workspace: iaespecializacion
+  project: hard_hat_detector_seg
+  version: 4
+  license: MIT
+  url: https://universe.roboflow.com/iaespecializacion/hard_hat_detector_seg/dataset/4

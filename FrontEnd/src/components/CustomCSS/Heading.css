@@ -1,0 +1,318 @@
+/* Heading Component Styles based on Figma design */
+
+.heading {
+  margin: 0;
+  line-height: 1.2;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: all 0.2s ease;
+}
+
+/* Heading Sizes */
+.heading-xs {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.heading-sm {
+  font-size: 0.875rem;
+  line-height: 1.3;
+}
+
+.heading-default {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.heading-lg {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+.heading-xl {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.heading-2xl {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.heading-3xl {
+  font-size: 1.875rem;
+  line-height: 1.1;
+}
+
+.heading-4xl {
+  font-size: 2.25rem;
+  line-height: 1.1;
+}
+
+.heading-5xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+/* Heading Variants */
+.heading-default-variant {
+  color: #111827;
+}
+
+.heading-primary {
+  color: #3f4299;
+}
+
+.heading-secondary {
+  color: #6b7280;
+}
+
+.heading-muted {
+  color: #9ca3af;
+}
+
+.heading-gradient {
+  background: linear-gradient(to right, #3f4299, #4f46e5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Heading Weights */
+.heading-light {
+  font-weight: 300;
+}
+
+.heading-normal {
+  font-weight: 400;
+}
+
+.heading-semibold {
+  font-weight: 600;
+}
+
+.heading-bold {
+  font-weight: 700;
+}
+
+.heading-extrabold {
+  font-weight: 800;
+}
+
+/* Heading Alignment */
+.heading-left {
+  text-align: left;
+}
+
+.heading-center {
+  text-align: center;
+}
+
+.heading-right {
+  text-align: right;
+}
+
+.heading-justify {
+  text-align: justify;
+}
+
+/* Heading with Underline */
+.heading-underline {
+  position: relative;
+  display: inline-block;
+}
+
+.heading-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -0.25rem;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, #3f4299, #4f46e5);
+  border-radius: 1px;
+}
+
+/* Heading with Icon */
+.heading-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.heading-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: currentColor;
+}
+
+/* Heading Spacing */
+.heading-spacing-tight {
+  margin-bottom: 0.5rem;
+}
+
+.heading-spacing-default {
+  margin-bottom: 1rem;
+}
+
+.heading-spacing-loose {
+  margin-bottom: 1.5rem;
+}
+
+.heading-spacing-none {
+  margin-bottom: 0;
+}
+
+/* Responsive Typography */
+@media (max-width: 640px) {
+  .heading-5xl {
+    font-size: 2.25rem;
+  }
+  
+  .heading-4xl {
+    font-size: 1.875rem;
+  }
+  
+  .heading-3xl {
+    font-size: 1.5rem;
+  }
+  
+  .heading-2xl {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .heading-5xl {
+    font-size: 1.875rem;
+  }
+  
+  .heading-4xl {
+    font-size: 1.5rem;
+  }
+  
+  .heading-3xl {
+    font-size: 1.25rem;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .heading-default-variant {
+    color: #f9fafb;
+  }
+  
+  .heading-secondary {
+    color: #d1d5db;
+  }
+  
+  .heading-muted {
+    color: #9ca3af;
+  }
+}
+
+/* Animation Effects */
+.heading {
+  animation: heading-fade-in 0.3s ease-out;
+}
+
+@keyframes heading-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover Effects */
+.heading-hover:hover {
+  transform: translateY(-1px);
+  transition: transform 0.2s ease;
+}
+
+/* Focus Styles */
+.heading:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Print Styles */
+@media print {
+  .heading {
+    color: black !important;
+    background: none !important;
+    -webkit-text-fill-color: initial !important;
+  }
+  
+  .heading-gradient {
+    color: black !important;
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+  }
+}
+
+/* Accessibility */
+.heading[role="heading"] {
+  outline: none;
+}
+
+/* Line Height Adjustments */
+.heading-tight {
+  line-height: 1.1;
+}
+
+.heading-normal {
+  line-height: 1.4;
+}
+
+.heading-relaxed {
+  line-height: 1.6;
+}
+
+/* Letter Spacing */
+.heading-tracking-tight {
+  letter-spacing: -0.025em;
+}
+
+.heading-tracking-normal {
+  letter-spacing: 0;
+}
+
+.heading-tracking-wide {
+  letter-spacing: 0.025em;
+}
+
+.heading-tracking-wider {
+  letter-spacing: 0.05em;
+}
+
+/* Text Transform */
+.heading-uppercase {
+  text-transform: uppercase;
+}
+
+.heading-lowercase {
+  text-transform: lowercase;
+}
+
+.heading-capitalize {
+  text-transform: capitalize;
+}
+
+/* Text Decoration */
+.heading-underline-text {
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+  text-decoration-thickness: 1px;
+}
+
+.heading-no-underline {
+  text-decoration: none;
+}

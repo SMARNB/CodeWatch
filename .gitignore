@@ -1,0 +1,35 @@
+# Python / Django
+venv/
+env/
+__pycache__/
+*.pyc
+db.sqlite3
+
+# Node / React
+node_modules/
+build/
+.env
+
+venv/
+node_modules/
+db.sqlite3
+__pycache__/
+*.pyc
+
+# Ignore huge video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+
+# Ignore image files and datasets
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
+*.pt
+*.avi
+*.dav

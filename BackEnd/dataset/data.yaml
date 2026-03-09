@@ -1,0 +1,45 @@
+train: C:\Users\38622\OneDrive\Documents\FYP\dataset\train\images
+val: C:\Users\38622\OneDrive\Documents\FYP\dataset\valid\images
+test: C:\Users\38622\OneDrive\Documents\FYP\dataset\test\images
+
+nc: 38
+names: [
+  "Women",
+  "face",
+  "kameez",
+  "dupatta",
+  "shalwar",
+  "heels",
+  "flats",
+  "bear feet",
+  "lehnga",
+  "sleeveless",
+  "short shirt",
+  "Man",
+  "coat",
+  "pant",
+  "formal shoes",
+  "bolause",
+  "bottoms",
+  "waist coat",
+  "shirt",
+  "sneakers",
+  "casual shirt",
+  "formal shirt",
+  "T shirt",
+  "trousers",
+  "halfsleeve shirt",
+  "jeans",
+  "shorts",
+  "jacket",
+  "cowboy boots",
+  "boots",
+  "Pant",
+  "slippers",
+  "hoodie",
+  "ka",
+  "naked leg",
+  "upper",
+  "naked abdominal",
+  "sherwani"
+]

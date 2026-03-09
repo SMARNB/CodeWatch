@@ -1,0 +1,245 @@
+/* TextButton Component Styles */
+
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+.text-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* TextButton Variants */
+.text-btn-default {
+  color: #6b7280;
+}
+
+.text-btn-default:hover:not(.text-btn-disabled) {
+  color: #374151;
+  text-decoration: underline;
+}
+
+.text-btn-primary {
+  color: #3f4299;
+  font-weight: 600;
+}
+
+.text-btn-primary:hover:not(.text-btn-disabled) {
+  color: #2d2f7a;
+  text-decoration: underline;
+}
+
+.text-btn-secondary {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.text-btn-secondary:hover:not(.text-btn-disabled) {
+  color: #374151;
+  text-decoration: underline;
+}
+
+.text-btn-muted {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.text-btn-muted:hover:not(.text-btn-disabled) {
+  color: #6b7280;
+  text-decoration: underline;
+}
+
+.text-btn-danger {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.text-btn-danger:hover:not(.text-btn-disabled) {
+  color: #b91c1c;
+  text-decoration: underline;
+}
+
+.text-btn-success {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.text-btn-success:hover:not(.text-btn-disabled) {
+  color: #15803d;
+  text-decoration: underline;
+}
+
+/* TextButton Sizes */
+.text-btn-small {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.text-btn-default-size {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.text-btn-large {
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+/* TextButton States */
+.text-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #9ca3af !important;
+  text-decoration: none !important;
+}
+
+.text-btn-loading {
+  cursor: not-allowed;
+}
+
+/* TextButton Text */
+.text-btn-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loading Spinner */
+.text-btn-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Underline Animation */
+.text-btn-underline {
+  position: relative;
+}
+
+.text-btn-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.text-btn-underline:hover::after {
+  width: 100%;
+}
+
+/* Ripple Effect */
+.text-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.text-btn:active::before {
+  width: 200px;
+  height: 200px;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .text-btn-large {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .text-btn-default {
+    color: #9ca3af;
+  }
+  
+  .text-btn-default:hover:not(.text-btn-disabled) {
+    color: #d1d5db;
+  }
+  
+  .text-btn-secondary {
+    color: #9ca3af;
+  }
+  
+  .text-btn-secondary:hover:not(.text-btn-disabled) {
+    color: #d1d5db;
+  }
+  
+  .text-btn-muted {
+    color: #6b7280;
+  }
+  
+  .text-btn-muted:hover:not(.text-btn-disabled) {
+    color: #9ca3af;
+  }
+}
+
+/* Animation Effects */
+.text-btn {
+  animation: text-btn-fade-in 0.2s ease-out;
+}
+
+@keyframes text-btn-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .text-btn {
+    color: black !important;
+    text-decoration: none !important;
+  }
+  
+  .text-btn:hover {
+    text-decoration: none !important;
+  }
+}
+
+/* Accessibility */
+.text-btn[role="button"] {
+  outline: none;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .text-btn {
+    font-weight: 600;
+  }
+  
+  .text-btn:focus-visible {
+    outline-width: 3px;
+  }
+}
