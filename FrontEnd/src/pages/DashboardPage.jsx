@@ -20,8 +20,8 @@ const DashboardPage = () => {
   const [violationOccurrenceData, setViolationOccurrenceData] = useState(null);
   const [violationTrendData, setViolationTrendData] = useState(null);
   const [violationTimelineData, setViolationTimelineData] = useState(null);
-  const [videoFeeds, setVideoFeeds] = useState(null);
-  const [currentVideoIndex] = useState(0);
+  const [cameras, setCameras] = useState([]);
+  const [currentCamera, setCurrentCamera] = useState(null);
 
   // Fetch all dashboard data
   useEffect(() => {
@@ -36,7 +36,16 @@ const DashboardPage = () => {
         setViolationOccurrenceData(data.violationOccurrenceData);
         setViolationTrendData(data.violationTrendData);
         setViolationTimelineData(data.violationTimelineData);
-        setVideoFeeds(data.videoFeeds);
+
+        // Fetch cameras
+        const camRes = await fetch('/api/cameras/');
+        if (camRes.ok) {
+          const camData = await camRes.json();
+          setCameras(camData);
+          if (camData.length > 0) {
+            setCurrentCamera(camData[0]);
+          }
+        }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
         setError('Failed to load dashboard data. Please try again later.');
@@ -48,10 +57,7 @@ const DashboardPage = () => {
     loadDashboardData();
   }, []);
 
-  // Get current video stream URL
-  const currentVideoStream = videoFeeds?.availableCameras?.[currentVideoIndex]
-    ? videoFeeds.currentVideo?.streamUrl || null
-    : null;
+
 
   if (loading) {
     return (
@@ -140,9 +146,9 @@ const DashboardPage = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-6 mb-5">
+        <div className="grid grid-cols-2 gap-6 mb-8">
 
-          {/* Left: Pie Chart (1/3 Width) */}
+          {/* Left: Pie Chart (1/2 Width) */}
           <div className="col-span-1 w-full flex items-center justify-center">
             <PieChartContainer
               chartData={pieChartData}
@@ -150,35 +156,36 @@ const DashboardPage = () => {
             />
           </div>
 
-          {/* Right: Line Graph (2/3 Width) */}
-          <div className="col-span-2 w-full flex items-center justify-center">
+          {/* Right: Line Graph (1/2 Width) */}
+          <div className="col-span-1 w-full flex items-center justify-center">
             <LineGraphContainer
               chartData={violationOccurrenceData}
               isLoading={loading}
             />
           </div>
         </div>
+        
+        <div style={{ height: '40px' }}></div>
 
-        {/* Video Section: Thumbnails stacked vertically above the Main Player */}
-        <div className=" flex flex-col">
+        {/* Video Section: Primary Player + Thumbnails */}
+        <div className="flex flex-col">
 
-          {/* Top: Camera Selection/Thumbnail Scroller - NOT SCALED */}
-          <div className="w-full" style={{ marginTop: '20px' }}>
-            <VideoThumbnails onSelectCamera={(cam) => {
-              // If camera has a stream URL, use it. Otherwise, fallback or show offline.
-              if (cam.stream_url) {
-                // Update the video feed state. 
-                // Note: We are bypassing the 'videoFeeds' object from fetchAllDashboardData 
-                // and directly controlling the player now.
-                setVideoFeeds(prev => ({ ...prev, currentVideo: { streamUrl: cam.stream_url } }));
-              }
-            }} />
+          {/* Top: Camera Selection/Thumbnail Scroller */}
+          <div className="w-full mb-2">
+            <VideoThumbnails 
+              selectedCameraId={currentCamera?.camera_id}
+              onSelectCamera={(cam) => {
+                setCurrentCamera(cam);
+              }} 
+            />
           </div>
 
-          {/* Bottom: Main Video Player - SCALED */}
-          <div className="w-full whitespace-wrap" style={{ marginTop: '20px' }}>
+          {/* Bottom: Main Video Player */}
+          <div className="w-full whitespace-wrap mb-4">
             <VideoPlayer
-              streamUrl={videoFeeds?.currentVideo?.streamUrl}
+              streamUrl={currentCamera?.stream_url}
+              cameraId={currentCamera?.camera_id}
+              cameraName={currentCamera?.name}
               placeholder="Select a camera to view feed"
             />
           </div>
@@ -186,7 +193,7 @@ const DashboardPage = () => {
 
 
         {/* Bottom Section: ViolationTrendChart (left) and ViolationTimeline (right) */}
-        <div className="grid grid-cols-3 gap-6 mb-5" style={{ marginTop: '20px', marginBottom: '20px' }}>
+        <div className="grid grid-cols-2 gap-6 mb-5" style={{ marginTop: '20px', marginBottom: '20px' }}>
 
           {/* Left Column: Violation Trend Chart */}
           <div className="col-span-1 w-full">
@@ -198,7 +205,7 @@ const DashboardPage = () => {
           </div>
 
           {/* Right Column: Violation Timeline (Heatmap) */}
-          <div className="col-span-2 w-full flex items-center justify-center" style={{ marginBottom: '20px' }}>
+          <div className="col-span-1 w-full flex items-center justify-center" style={{ marginBottom: '20px' }}>
             <ViolationTimeline
               timelineData={violationTimelineData}
             />

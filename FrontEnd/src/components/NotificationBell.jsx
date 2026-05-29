@@ -7,38 +7,7 @@ const NotificationBell = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // 1. Move the default list UP
-  const defaultNotifications = [
-    {
-      id: 1,
-      title: 'New violation detected',
-      message: 'Unauthorized access at Gate A',
-      time: '5 minutes ago',
-      read: false,
-      type: 'warning',
-    },
-    {
-      id: 2,
-      title: 'Report generated',
-      message: 'Weekly report is ready for review',
-      time: '1 hour ago',
-      read: false,
-      type: 'info',
-    },
-    {
-      id: 3,
-      title: 'System update',
-      message: 'Camera 3 firmware updated successfully',
-      time: '3 hours ago',
-      read: true,
-      type: 'success',
-    },
-  ];
-
-  // 2. Define notificationList SECOND
-  const notificationList = notifications.length > 0 ? notifications : defaultNotifications;
-
-  const [unreadCount, setUnreadCount] = useState(notifications.filter(n => !n.read).length);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
   
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -48,14 +17,10 @@ const NotificationBell = ({
     if (onNotificationClick) {
       onNotificationClick(notification);
     }
-    // Mark as read
-    if (!notification.read) {
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    }
   };
 
   const markAllAsRead = () => {
-    setUnreadCount(0);
+    // Optional: implement mark all as read API call if needed
   };
 
   const getIconColor = (type) => {
@@ -82,11 +47,12 @@ const NotificationBell = ({
       >
         {/* Bell Icon */}
         <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          className="w-7 h-7"
           xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
         >
           <path
             strokeLinecap="round"
@@ -98,7 +64,7 @@ const NotificationBell = ({
 
         {/* Notification Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -130,7 +96,7 @@ const NotificationBell = ({
 
             {/* Notifications List */}
             <div className="overflow-y-auto max-h-80">
-              {notificationList.length === 0 ? (
+              {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-gray-500">
                   <svg
                     className="w-12 h-12 mx-auto mb-2 text-gray-400"
@@ -148,12 +114,12 @@ const NotificationBell = ({
                   <p>No notifications</p>
                 </div>
               ) : (
-                notificationList.map((notification) => (
+                notifications.map((notification) => (
                   <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
                     className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-blue-50' : ''
+                      !notification.is_read ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-3">
@@ -170,7 +136,7 @@ const NotificationBell = ({
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+                        <p className={`text-sm font-medium ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`}>
                           {notification.title}
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
@@ -182,7 +148,7 @@ const NotificationBell = ({
                       </div>
 
                       {/* Unread Indicator */}
-                      {!notification.read && (
+                      {!notification.is_read && (
                         <div className="flex-shrink-0">
                           <div className="w-2 h-2 bg-blue-600 rounded-full" />
                         </div>
@@ -194,7 +160,7 @@ const NotificationBell = ({
             </div>
 
             {/* Footer */}
-            {notificationList.length > 0 && (
+            {notifications.length > 0 && (
               <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
                 <button 
                   onClick={() => {

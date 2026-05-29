@@ -1,9 +1,8 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
 // Page imports
-import RoleSelectionPage from './pages/RoleSelectionPage';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import PasswordResetPage from './pages/PasswordResetPage';
@@ -15,6 +14,14 @@ import ManageViolationsPage from './pages/ManageViolationsPage';
 import PreviousReportsPage from './pages/PreviousReportsPage';
 import GenerateAnalyticsPage from './pages/GenerateAnalyticsPage';
 import ReportDetailsPage from './pages/ReportDetailsPage';
+import ManageCamerasPage from './pages/ManageCamerasPage';
+import ManagePeoplePage from './pages/ManagePeoplePage';
+import ManageUsersPage from './pages/ManageUsersPage';
+import ManageBlacklistPage from './pages/ManageBlacklistPage';
+import LiveTrackPage from './pages/LiveTrackPage';
+import GuardDashboardPage from './pages/GuardDashboardPage';
+import AddVisitorPage from './pages/AddVisitorPage';
+import VisitorListPage from './pages/VisitorListPage';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -86,6 +93,27 @@ const AddCameraPage = () => (
 );
 
 
+// Protected Route Component
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const userType = localStorage.getItem('userType');
+  
+  if (!userType) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (requiredRole && userType !== requiredRole) {
+    const roleRoutes = {
+      'admin': '/admin/dashboard',
+      'ssd': '/ssd/dashboard',
+      'department-head': '/department-head/dashboard',
+      'guard': '/guard/dashboard'
+    };
+    return <Navigate to={roleRoutes[userType] || '/login'} replace />;
+  }
+  
+  return children;
+};
+
 // Main App Component
 function App() {
   return (
@@ -93,23 +121,32 @@ function App() {
       <BrowserRouter>
         <div className="min-h-screen">
           <Routes>
-            <Route path="/" element={<RoleSelectionPage />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<PasswordResetPage />} />
             <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/admin/dashboard" element={<DashboardPage />} />
-            <Route path="/admin/notifications" element={<NotificationsPage userType="admin" />} />
-            <Route path="/ssd/notifications" element={<NotificationsPage userType="ssd" />} />
-            <Route path="/department-head/dashboard" element={<DashboardPage />} />
-            <Route path="/department-head/notifications" element={<NotificationsPage userType="department-head" />} />
-            <Route path="/feedback" element={<FeedbackPage />} />
-            <Route path="/notification-details" element={<NotificationDetailsPage />} />
-            <Route path="/add-camera" element={<AddCameraPage />} />
-            <Route path="/admin/manage-violations" element={<ManageViolationsPage />} />
-            <Route path="/reports" element={<PreviousReportsPage />} />
-            <Route path="/report-details" element={<ReportDetailsPage />} />
-            <Route path="/analytics" element={<GenerateAnalyticsPage />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
+            <Route path="/admin/notifications" element={<ProtectedRoute requiredRole="admin"><NotificationsPage userType="admin" /></ProtectedRoute>} />
+            <Route path="/ssd/dashboard" element={<ProtectedRoute requiredRole="ssd"><DashboardPage /></ProtectedRoute>} />
+            <Route path="/ssd/notifications" element={<ProtectedRoute requiredRole="ssd"><NotificationsPage userType="ssd" /></ProtectedRoute>} />
+            <Route path="/department-head/dashboard" element={<ProtectedRoute requiredRole="department-head"><DashboardPage /></ProtectedRoute>} />
+            <Route path="/department-head/notifications" element={<ProtectedRoute requiredRole="department-head"><NotificationsPage userType="department-head" /></ProtectedRoute>} />
+            <Route path="/guard/dashboard" element={<ProtectedRoute requiredRole="guard"><GuardDashboardPage /></ProtectedRoute>} />
+            <Route path="/guard/add-visitor" element={<ProtectedRoute requiredRole="guard"><AddVisitorPage /></ProtectedRoute>} />
+            <Route path="/guard/visitors" element={<ProtectedRoute requiredRole="guard"><VisitorListPage /></ProtectedRoute>} />
+            <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
+            <Route path="/notification-details" element={<ProtectedRoute><NotificationDetailsPage /></ProtectedRoute>} />
+            <Route path="/add-camera" element={<ProtectedRoute><AddCameraPage /></ProtectedRoute>} />
+            <Route path="/admin/manage-violations" element={<ProtectedRoute requiredRole="admin"><ManageViolationsPage /></ProtectedRoute>} />
+            <Route path="/admin/manage-blacklist" element={<ProtectedRoute requiredRole="admin"><ManageBlacklistPage /></ProtectedRoute>} />
+            <Route path="/admin/manage-cameras" element={<ProtectedRoute requiredRole="admin"><ManageCamerasPage /></ProtectedRoute>} />
+            <Route path="/admin/manage-people" element={<ProtectedRoute requiredRole="admin"><ManagePeoplePage /></ProtectedRoute>} />
+            <Route path="/admin/manage-users" element={<ProtectedRoute requiredRole="admin"><ManageUsersPage /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><PreviousReportsPage /></ProtectedRoute>} />
+            <Route path="/report-details" element={<ProtectedRoute><ReportDetailsPage /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><GenerateAnalyticsPage /></ProtectedRoute>} />
+            <Route path="/live-track/:personId" element={<ProtectedRoute><LiveTrackPage /></ProtectedRoute>} />
           </Routes>
         </div>
       </BrowserRouter>

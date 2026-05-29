@@ -1,35 +1,63 @@
-# Python / Django
+# ---- Python / Django ----
 venv/
 env/
+.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.log
 db.sqlite3
+db.sqlite3-journal
 
-# Node / React
-node_modules/
-build/
+# ---- Secrets ----
 .env
+!.env.example
 
-venv/
+# ---- Django runtime data (not code) ----
+/BackEnd/media/
+/BackEnd/staticfiles/
+
+# ---- Node / React (Vite) ----
 node_modules/
-db.sqlite3
-__pycache__/
-*.pyc
+dist/
+build/
+.vite/
 
-# Ignore huge video files
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.wmv
+# ---- AI models / weights / training output ----
+*.pt
+*.onnx
+/BackEnd/runs/
 
-# Ignore image files and datasets
+# ---- Datasets & training/debug image folders (not source code) ----
+/BackEnd/FYP.v5i.yolo26/
+/BackEnd/dian_dataset/
+/BackEnd/sleeveless_extracted/
+/BackEnd/NewDataset/
+/BackEnd/dataset/
+/BackEnd/debug_frames/
+/BackEnd/demo_faces/
+/BackEnd/faces/
+/BackEnd/training_samples/
+
+# ---- All raster images (datasets, frames, snapshots). SVGs are kept for UI. ----
 *.jpg
 *.jpeg
 *.png
 *.gif
 *.bmp
 *.webp
-*.pt
+*.tiff
+
+# ---- Videos / CCTV footage ----
+*.mp4
 *.avi
+*.mov
+*.mkv
+*.wmv
 *.dav
+
+# ---- Large downloadable binaries (configs like mediamtx.yml stay tracked) ----
+*.exe
+
+# ---- OS ----
+.DS_Store
+Thumbs.db

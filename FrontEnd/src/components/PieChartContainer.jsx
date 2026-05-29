@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -14,25 +14,37 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 const PieChartContainer = ({ chartData, isLoading = false }) => {
   // Default chart data structure
   const defaultChartData = {
-    labels: ['Non-Violators', 'Unauthorized', 'Victors', 'Violators'],
+    labels: ['Non-Violators', 'Unauthorized', 'Visitors', 'Violators', 'Dress Code Violations'],
     datasets: [
       {
         label: 'Detection per Anum',
-        data: [5565, 565, 454, 154],
-        backgroundColor: [
-          '#10B981', // Green for Non-Violators
-          '#F59E0B', // Orange for Unauthorized
-          '#3B82F6', // Blue for Victors
-          '#EF4444', // Red for Violators
-        ],
+        data: [0, 0, 0, 0, 0],
+        backgroundColor: ['#90EE90', '#FF4444', '#00CED1', '#FF69B4', '#4169E1'],
         borderColor: '#ffffff',
         borderWidth: 2,
       },
     ],
   };
 
-  // Use provided chartData or default
-  const data = chartData || defaultChartData;
+  const processedData = useMemo(() => {
+    if (!chartData) return defaultChartData;
+    // If already in Chart.js format (has datasets array)
+    if (chartData.datasets) return chartData;
+    // If in flat format, wrap it
+    return {
+      labels: chartData.labels || defaultChartData.labels,
+      datasets: [{
+        label: 'Detection per Anum',
+        data: chartData.data || defaultChartData.datasets[0].data,
+        backgroundColor: chartData.backgroundColor || defaultChartData.datasets[0].backgroundColor,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      }]
+    };
+  }, [chartData]);
+
+  // Use processedData instead of raw chartData
+  const data = processedData;
 
   // Chart options
   const chartOptions = {
@@ -85,19 +97,16 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
   const total = data.datasets[0].data.reduce((sum, value) => sum + value, 0);
 
   return (
-    <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out h-[400px]">
+    <div className="relative w-full h-full flex flex-col bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out min-h-[400px]">
       {/* Title */}
       <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
         Predestine Detection per Anum
       </div>
 
       {/* Chart Container */}
-      <div className="relative  flex justify-center items-center mt-12 mb-6 h-[350px]">
-        <div className="relative flex justify-center items-center">
-          <div className="w-full h-full">
-            
-            <Pie data={data} options={chartOptions} style={{height: '250px', width:'500px'}}/>
-          </div>
+      <div className="relative w-full flex-grow mt-6 mb-6">
+        <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '280px' }}>
+            <Pie data={data} options={chartOptions} />
           
           {/* Center Total Display (for donut chart) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

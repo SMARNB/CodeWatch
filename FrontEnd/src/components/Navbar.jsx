@@ -7,6 +7,16 @@ import AddMemberModal from './AddMemberModal';
 import AddCameraModal from './AddCameraModal';
 import SendReportModal from './SendReportModal';
 
+// Custom hook for debouncing
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 // Wrapper component for NavLink that uses isActive for both styling and indicator
 const NavLinkWithIndicator = ({ to, onClick, children }) => {
   return (
@@ -45,12 +55,53 @@ const Navbar = () => {
   const [showAddCameraModal, setShowAddCameraModal] = useState(false);
   const [showSendReportModal, setShowSendReportModal] = useState(false);
   const [userType, setUserType] = useState('admin');
+  const [notifications, setNotifications] = useState([]);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const [searchResults, setSearchResults] = useState(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = React.useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (debouncedSearch.length >= 2) {
+      const fetchSearch = async () => {
+        try {
+          const res = await fetch(`/api/search/?q=${encodeURIComponent(debouncedSearch)}`);
+          if (res.ok) {
+            setSearchResults(await res.json());
+            setIsSearchOpen(true);
+          }
+        } catch (e) { console.error("Search failed", e); }
+      };
+      fetchSearch();
+    } else {
+      setSearchResults(null);
+      setIsSearchOpen(false);
+    }
+  }, [debouncedSearch]);
 
   // Fetch user data from localStorage (set during login)
   useEffect(() => {
     const getUserData = () => {
       // Retrieve userType
-      const storedUserType = localStorage.getItem('userType') || 'admin';
+      const storedUserType = localStorage.getItem('userType');
+      if (!storedUserType) {
+        navigate('/login', { replace: true });
+        return;
+      }
       setUserType(storedUserType);
       
       // Retrieve username/email (primary display name)
@@ -105,10 +156,26 @@ const Navbar = () => {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('userDataUpdated', handleCustomStorage);
     
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications/');
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    
     // Cleanup listeners on unmount
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userDataUpdated', handleCustomStorage);
+      clearInterval(interval);
     };
   }, []);
 
@@ -141,58 +208,28 @@ const Navbar = () => {
     // Handle logout
     if (linkName === 'Log out') {
       e?.preventDefault();
-      // Clear all user-related data from localStorage
-      localStorage.removeItem('userType');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('username');
-      localStorage.removeItem('user_email');
-      localStorage.removeItem('userFullName');
-      localStorage.removeItem('userDisplayName');
-      localStorage.removeItem('displayName');
-      localStorage.removeItem('fullName');
-      localStorage.removeItem('userAvatar');
-      localStorage.removeItem('userAvatarUrl');
-      localStorage.removeItem('avatarUrl');
-      localStorage.removeItem('avatar');
-      
-      // Reset component state
-      setUsername('username');
-      setUserDisplayName(null);
-      setUserAvatarUrl(null);
-      
-      navigate('/');
+      handleLogout();
     }
   };
 
   const handleLogout = () => {
-    // Clear all user-related data from localStorage
-    localStorage.removeItem('userType');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('username');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('userFullName');
-    localStorage.removeItem('userDisplayName');
-    localStorage.removeItem('displayName');
-    localStorage.removeItem('fullName');
-    localStorage.removeItem('userAvatar');
-    localStorage.removeItem('userAvatarUrl');
-    localStorage.removeItem('avatarUrl');
-    localStorage.removeItem('avatar');
+    // Clear ALL localStorage
+    localStorage.clear();
     
     // Reset component state
     setUsername('username');
     setUserDisplayName(null);
     setUserAvatarUrl(null);
     
-    navigate('/');
+    setToastMessage('Logged out');
+    setTimeout(() => {
+      navigate('/login');
+    }, 1000);
   };
 
   // Get current userType from localStorage (for immediate access) or state
   const currentUserType = userType || localStorage.getItem('userType') || 'admin';
 
-  // Get dashboard path based on userType
   const getDashboardPath = () => {
     if (currentUserType === 'admin') {
       return '/admin/dashboard';
@@ -200,28 +237,33 @@ const Navbar = () => {
       return '/department-head/dashboard';
     } else if (currentUserType === 'ssd') {
       return '/ssd/dashboard';
+    } else if (currentUserType === 'guard') {
+      return '/guard/dashboard';
     }
     return '/admin/dashboard';
   };
 
-  // Default navigation links if none provided
+  // Default navigation links
   const defaultLinks = [
-    { name: 'Dashboard', path: getDashboardPath() },
-    { name: 'Add User', path: '/add-user' },
-    { name: 'Add Camera', path: '/add-camera' },
-    { name: 'Generate Analytics', path: '/analytics' },
-    { name: 'Send Report', path: '/send-report' },
-    { name: 'Previous Reports', path: '/reports' },
-    { name: 'Log out', path: '/' }
+    { name: 'Dashboard', path: getDashboardPath(), roles: ['admin', 'ssd', 'department-head', 'guard'] },
+    { name: 'Notifications', path: `/${currentUserType}/notifications`, roles: ['ssd', 'department-head'] },
+    { name: 'Add User', path: '/add-user', roles: ['admin'] },
+    { name: 'Add Camera', path: '/add-camera', roles: ['admin'] },
+    { name: 'Manage Cameras', path: '/admin/manage-cameras', roles: ['admin'] },
+    { name: 'Manage People', path: '/admin/manage-people', roles: ['admin'] },
+    { name: 'Manage Users', path: '/admin/manage-users', roles: ['admin'] },
+    { name: 'Manage Violations', path: '/admin/manage-violations', roles: ['admin', 'ssd'] },
+    { name: 'Manage Blacklist', path: '/admin/manage-blacklist', roles: ['admin'] },
+    { name: 'Generate Analytics', path: '/analytics', roles: ['admin'] },
+    { name: 'Send Report', path: '/send-report', roles: ['admin'] },
+    { name: 'Previous Reports', path: '/reports', roles: ['admin', 'ssd', 'department-head'] },
+    { name: 'Add Visitor', path: '/guard/add-visitor', roles: ['guard'] },
+    { name: 'Active Visitors', path: '/guard/visitors', roles: ['guard'] },
+    { name: 'Log out', path: '/login', roles: ['admin', 'ssd', 'department-head', 'guard'] }
   ];
 
-  // Filter out "Add User" and "Add Camera" for Department Head users
-  const navigationLinks = defaultLinks.filter(link => {
-    if (currentUserType === 'department-head') {
-      return link.name !== 'Add User' && link.name !== 'Add Camera';
-    }
-    return true;
-  });
+  // Filter links based on user type
+  const navigationLinks = defaultLinks.filter(link => link.roles.includes(currentUserType));
 
   return (
     <nav className="sticky top-0 z-50 bg-white shadow-[0px_0px_6px_4px_rgba(151,151,151,0.12)]">
@@ -239,6 +281,64 @@ const Navbar = () => {
 
           {/* Right Section: Navigation Links + NotificationBell + UserAvatar + Username (Grouped) */}
           <div className="flex items-center gap-8 mr-[5%] flex-shrink-0">
+
+            {/* Global Search - visible only to admin and ssd */}
+            {(currentUserType === 'admin' || currentUserType === 'ssd') && (
+              <div className="relative" ref={searchRef}>
+                <div className="relative flex items-center">
+                  <svg className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search people, cameras..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => { if(searchResults) setIsSearchOpen(true); }}
+                    className="w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                  />
+                </div>
+                
+                {isSearchOpen && searchResults && (
+                  <div className="absolute top-12 left-0 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+                    {/* People Results */}
+                    {searchResults.people && searchResults.people.length > 0 && (
+                      <div className="p-2 border-b border-gray-100">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase px-2 mb-1">People</h4>
+                        {searchResults.people.map(person => (
+                          <div key={person.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{person.name}</div>
+                              <div className="text-xs text-gray-500">{person.employee_id} • {person.department}</div>
+                            </div>
+                            <button onClick={() => { setIsSearchOpen(false); navigate(`/live-track/${person.id}`); }} className="px-3 py-1 bg-[#3f4299] text-white text-xs rounded-lg hover:bg-[#2d3170]">Live Track</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Cameras Results */}
+                    {searchResults.cameras && searchResults.cameras.length > 0 && (
+                      <div className="p-2 border-b border-gray-100">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase px-2 mb-1">Cameras</h4>
+                        {searchResults.cameras.map(cam => (
+                          <div key={cam.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onClick={() => { setIsSearchOpen(false); navigate(getDashboardPath()); }}>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{cam.name}</div>
+                              <div className="text-xs text-gray-500">{cam.location}</div>
+                            </div>
+                            <div className={`w-2 h-2 rounded-full ${cam.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(!searchResults.people?.length && !searchResults.cameras?.length) && (
+                      <div className="p-4 text-sm text-gray-500 text-center">No results found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Desktop Navigation Links */}
             <div className="hidden md:flex items-center gap-8">
               {navigationLinks.map((link, index) => {
@@ -272,14 +372,20 @@ const Navbar = () => {
 
             {/* Notification Bell Component */}
             <NotificationBell 
-              notifications={[]}
-              onNotificationClick={() => {
+              notifications={notifications}
+              onNotificationClick={async (notification) => {
+                if (!notification.is_read) {
+                  try {
+                    await fetch(`/api/notifications/read/${notification.id}/`, { method: 'POST' });
+                    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
+                  } catch (err) {
+                    console.error('Failed to mark read', err);
+                  }
+                }
                 // Determine the correct notifications route based on userType
-                const notificationsRoute = currentUserType === 'admin' ? '/admin/notifications' :
-                                         currentUserType === 'ssd' ? '/ssd/notifications' :
-                                         '/department-head/notifications';
+                navigate(`/notification-details?id=${notification.id}`);
                 // Open notifications page in a new tab
-                window.open(notificationsRoute, '_blank');
+                //window.open(notificationsRoute, '_blank');
               }}
             />
 
@@ -376,6 +482,13 @@ const Navbar = () => {
       )}
       {showSendReportModal && (
         <SendReportModal onClose={() => setShowSendReportModal(false)} />
+      )}
+
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in-up">
+          {toastMessage}
+        </div>
       )}
     </nav>
   );

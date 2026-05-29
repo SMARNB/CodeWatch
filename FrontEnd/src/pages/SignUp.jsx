@@ -59,31 +59,26 @@ const SignUpPage = ({ userType: propUserType }) => {
     }
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/auth/signup', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ ...formData, userType })
-      // });
+      const response = await fetch('/api/add-member/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          role: userType,
+          name: formData.username || formData.email.split('@')[0],
+        })
+      });
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Sign up failed');
+      }
 
-      // Mock success - store user info and navigate
-      localStorage.setItem('userType', userType);
-      localStorage.setItem('userEmail', formData.email || '');
-      localStorage.setItem('userName', formData.username || '');
-
-      // Navigate to appropriate dashboard
-      const dashboardRoutes = {
-        admin: '/admin/dashboard',
-        ssd: '/ssd/dashboard',
-        'department-head': '/department-head/dashboard'
-      };
-
-      navigate(dashboardRoutes[userType] || '/dashboard');
+      // Provide success message when redirecting to login
+      navigate('/login', { state: { message: 'Account created successfully. Please log in.' } });
     } catch (error) {
-      setError('Sign up failed. Please try again.');
+      setError(error.message || 'Sign up failed. Please try again.');
       console.error('Sign up error:', error);
     } finally {
       setLoading(false);

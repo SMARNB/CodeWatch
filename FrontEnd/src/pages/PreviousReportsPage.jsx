@@ -83,7 +83,7 @@ const PreviousReportsPage = () => {
       try {
         setLoading(true);
         // Call Django API
-        const response = await fetch('http://127.0.0.1:8000/api/get-reports/');
+        const response = await fetch('/api/get-reports/');
         
         if (response.ok) {
           const data = await response.json();
@@ -97,7 +97,9 @@ const PreviousReportsPage = () => {
             status: r.status,
             type: r.type,
             priority: r.priority,
-            message: r.message
+            message: r.message,
+            snapshot_url: r.snapshot_url,
+            movement_summary: r.movement_summary
           }));
           
           setReports(formattedReports);
@@ -137,27 +139,30 @@ const PreviousReportsPage = () => {
   };
 
   // Handle delete action
-  const handleDelete = (reportId) => {
+  const handleDelete = async (reportId) => {
     if (window.confirm(`Are you sure you want to delete report ${reportId}?`)) {
       try {
-        // Get reports from localStorage
-        const reportsJson = localStorage.getItem('analyticsReports');
-        if (reportsJson) {
-          const reports = JSON.parse(reportsJson);
-          // Filter out the deleted report
-          const updatedReports = reports.filter(report => report.id !== reportId);
-          // Save back to localStorage
-          localStorage.setItem('analyticsReports', JSON.stringify(updatedReports));
-          // Update state
+        const response = await fetch(`/api/delete-report/${reportId}/`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          // Remove from state
           setReports(prev => prev.filter(report => report.id !== reportId));
-          // Trigger storage event
-          window.dispatchEvent(new Event('storage'));
-          window.dispatchEvent(new Event('reportsUpdated'));
+          console.log('Report deleted:', reportId);
+          
+          // Also update localStorage if applicable
+          const reportsJson = localStorage.getItem('analyticsReports');
+          if (reportsJson) {
+            const reports = JSON.parse(reportsJson);
+            const updatedReports = reports.filter(report => report.id !== reportId);
+            localStorage.setItem('analyticsReports', JSON.stringify(updatedReports));
+            window.dispatchEvent(new Event('storage'));
+            window.dispatchEvent(new Event('reportsUpdated'));
+          }
         } else {
-          // If no localStorage data, just update state (for mock reports)
-          setReports(prev => prev.filter(report => report.id !== reportId));
+          console.error('Failed to delete report from server');
         }
-        console.log('Report deleted:', reportId);
       } catch (error) {
         console.error('Error deleting report:', error);
       }

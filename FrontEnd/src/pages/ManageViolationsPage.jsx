@@ -10,8 +10,16 @@ const ManageViolationsPage = () => {
   const [user, setUser] = useState(null);
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [cameraFilter, setCameraFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  
   const [selectedViolations, setSelectedViolations] = useState([]);
 
   const userType = localStorage.getItem('userType') || 'admin';
@@ -83,60 +91,49 @@ const ManageViolationsPage = () => {
   }, [userType]);
 
   // Fetch violations data
+  const fetchViolations = async () => {
+    try {
+      setLoading(true);
+      
+      const queryParams = new URLSearchParams({
+        page,
+        page_size: 50,
+        ...(typeFilter !== 'all' && { type: typeFilter }),
+        ...(cameraFilter !== 'all' && { camera_id: cameraFilter }),
+        ...(dateFrom && { date_from: dateFrom }),
+        ...(dateTo && { date_to: dateTo }),
+      });
+      
+      const response = await fetch(`/api/violations/?${queryParams.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch violations");
+
+      const data = await response.json();
+      
+      setViolations(data.results || []);
+      setTotalPages(data.pages || 1);
+      setTotalCount(data.total || 0);
+      
+    } catch (error) {
+      console.error('Failed to fetch violations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchViolations = async () => {
-      try {
-
-        setLoading(true);
-        const response = await fetch('http://127.0.0.1:8000/api/violations/');
-        if (!response.ok) throw new Error("Failed to fetch violations");
-
-        const data = await response.json();
-        const mappedViolations = data.map(v => ({
-          id: v.violation_id, // Map backend violation_id to frontend id
-          db_id: v.id,        // Store database ID for operations
-          type: v.type,
-          location: v.location,
-          severity: v.severity,
-          status: v.status,
-          timestamp: v.time, // The backend sends formatted string, or we can parse if needed
-          description: `Violation: ${v.type} at ${v.location}` // Construct description
-        }));
-
-        setViolations(mappedViolations);
-      } catch (error) {
-        console.error('Failed to fetch violations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchViolations();
-  }, []);
+  }, [page, typeFilter, cameraFilter, dateFrom, dateTo]);
 
-  // Filter violations
-  const filteredViolations = violations.filter(violation => {
-    const matchesSearch = !searchTerm ||
-      violation.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' ||
-      violation.status?.toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesStatus;
-  });
+  const handleFilterChange = () => {
+    setPage(1); // Reset to page 1 on filter change
+  };
 
   const handleViolationClick = (violation) => {
-    // Open violation details in a new tab
-    const violationKey = `violation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    sessionStorage.setItem(violationKey, JSON.stringify({
-      violation,
-      userType
-    }));
-    const url = `/notification-details?key=${encodeURIComponent(violationKey)}`;
-    window.open(url, '_blank');
+    if (violation.notification_id) {
+       navigate(`/notification-details?id=${violation.notification_id}`);
+    } else {
+       alert("No linked notification for this violation.");
+    }
   };
 
   const handleSelectViolation = (violationId) => {
@@ -148,10 +145,10 @@ const ManageViolationsPage = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedViolations.length === filteredViolations.length) {
+    if (selectedViolations.length === violations.length) {
       setSelectedViolations([]);
     } else {
-      setSelectedViolations(filteredViolations.map(v => v.id));
+      setSelectedViolations(violations.map(v => v.id));
     }
   };
 
@@ -160,12 +157,10 @@ const ManageViolationsPage = () => {
     if (window.confirm(`Are you sure you want to delete ${selectedViolations.length} violation(s)?`)) {
       try {
         // Delete sequentially or parallel
-        const violationIdsToDelete = violations
-          .filter(v => selectedViolations.includes(v.id))
-          .map(v => v.db_id);
+        const violationIdsToDelete = selectedViolations;
 
         await Promise.all(violationIdsToDelete.map(id =>
-          fetch(`http://127.0.0.1:8000/api/violations/${id}/`, { method: 'DELETE' })
+          fetch(`/api/violations/${id}/`, { method: 'DELETE' })
         ));
 
         setViolations(prev => prev.filter(v => !selectedViolations.includes(v.id)));
@@ -274,29 +269,46 @@ const ManageViolationsPage = () => {
             </div>
 
             {/* Search and Filter Bar */}
-            <div className="flex items-center gap-4" style={{ marginBottom: '20px' }}>
-              <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-4" style={{ marginBottom: '20px' }}>
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); handleFilterChange(); }}
+                className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+                style={{ fontFamily: "'Open Sans', sans-serif" }}
+              >
+                <option value="all">All Violation Types</option>
+                <option value="Unauthorized Access">Unauthorized Access</option>
+                <option value="Dress Code Violation">Dress Code Violation</option>
+                <option value="Restricted Area">Restricted Area</option>
+              </select>
+
+              <select
+                value={cameraFilter}
+                onChange={(e) => { setCameraFilter(e.target.value); handleFilterChange(); }}
+                className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+                style={{ fontFamily: "'Open Sans', sans-serif" }}
+              >
+                <option value="all">All Cameras</option>
+                <option value="CAM-001">CAM-001 (Main Entrance)</option>
+                <option value="CAM-002">CAM-002 (Server Room)</option>
+                <option value="CAM-003">CAM-003 (Hallway A)</option>
+              </select>
+              
+              <div className="flex items-center gap-2">
                 <input
-                  type="text"
-                  placeholder="Search violations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-                  style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px' }}
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); handleFilterChange(); }}
+                  className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299]"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); handleFilterChange(); }}
+                  className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299]"
                 />
               </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-                style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px' }}
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="under review">Under Review</option>
-                <option value="resolved">Resolved</option>
-                <option value="rejected">Rejected</option>
-              </select>
             </div>
 
             {/* Actions Bar */}
@@ -323,7 +335,7 @@ const ManageViolationsPage = () => {
                   <p className="text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>Loading violations...</p>
                 </div>
               </div>
-            ) : filteredViolations.length === 0 ? (
+            ) : violations.length === 0 ? (
               <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-12 text-center" style={{ marginBottom: '20px' }}>
                 <p className="text-gray-500 text-lg" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                   No violations found
@@ -338,36 +350,23 @@ const ManageViolationsPage = () => {
                         <th className="px-4 py-3 text-left">
                           <input
                             type="checkbox"
-                            checked={selectedViolations.length === filteredViolations.length && filteredViolations.length > 0}
+                            checked={selectedViolations.length === violations.length && violations.length > 0}
                             onChange={handleSelectAll}
                             className="w-4 h-4 text-[#3f4299] border-[#bab6b6] rounded focus:ring-[#3f4299]"
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Violation ID
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Type
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Location
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Severity
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Date & Time
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                          Actions
-                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Person</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Camera</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Confidence</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Timestamp</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Snapshot</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {filteredViolations.map((violation) => (
+                      {violations.map((violation) => (
                         <tr
                           key={violation.id}
                           className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -381,54 +380,32 @@ const ManageViolationsPage = () => {
                               className="w-4 h-4 text-[#3f4299] border-[#bab6b6] rounded focus:ring-[#3f4299]"
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                            {violation.id}
+                          <td className="px-4 py-3 text-sm text-gray-900">{violation.id}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{violation.violation_type}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                            {violation.person_name}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                            {violation.type}
+                          <td className="px-4 py-3 text-sm text-gray-900">{violation.camera_name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                             {(violation.confidence * 100).toFixed(1)}%
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                            {violation.location}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-sm font-medium ${getSeverityColor(violation.severity)}`} style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                              {violation.severity}
-                            </span>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {violation.timestamp}
                           </td>
                           <td className="px-4 py-3">
-                            <select
-                              value={violation.status}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleStatusChange(violation.id, e.target.value);
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`px-2 py-1 rounded-full text-xs font-medium border-0 outline-none ${getStatusColor(violation.status)}`}
-                              style={{ fontFamily: "'Open Sans', sans-serif" }}
-                            >
-                              <option value="Pending">Pending</option>
-                              <option value="Under Review">Under Review</option>
-                              <option value="Resolved">Resolved</option>
-                              <option value="Rejected">Rejected</option>
-                            </select>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                            {formatDate(violation.timestamp)}
+                            {violation.snapshot_url ? (
+                              <img src={violation.snapshot_url} alt="snapshot" className="w-12 h-12 rounded object-cover border" />
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">No Image</span>
+                            )}
                           </td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => handleViolationClick(violation)}
-                                className="px-3 py-1 text-xs font-medium text-[#3f4299] hover:bg-blue-50 rounded transition-colors"
-                                style={{ fontFamily: "'Open Sans', sans-serif" }}
-                              >
-                                View
-                              </button>
-                              <button
                                 onClick={async () => {
                                   if (window.confirm('Are you sure you want to delete this violation record?')) {
                                     try {
-                                      await fetch(`http://127.0.0.1:8000/api/violations/${violation.db_id}/`, { method: 'DELETE' });
+                                      await fetch(`/api/violations/${violation.id}/`, { method: 'DELETE' });
                                       setViolations(prev => prev.filter(v => v.id !== violation.id));
                                       alert("Record Deleted");
                                     } catch (err) {
@@ -438,7 +415,6 @@ const ManageViolationsPage = () => {
                                   }
                                 }}
                                 className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
-                                style={{ fontFamily: "'Open Sans', sans-serif" }}
                               >
                                 Delete
                               </button>
@@ -452,12 +428,29 @@ const ManageViolationsPage = () => {
               </div>
             )}
 
-            {/* Pagination (if needed) */}
-            {!loading && filteredViolations.length > 0 && (
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
               <div className="flex items-center justify-between" style={{ marginBottom: '20px' }}>
                 <p className="text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                  Showing {filteredViolations.length} of {violations.length} violations
+                  Showing {violations.length} of {totalCount} violations
                 </p>
+                <div className="flex gap-2">
+                  <button 
+                    disabled={page === 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className="px-4 py-2 border rounded text-sm bg-white disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-4 py-2 text-sm text-gray-700">Page {page} of {totalPages}</span>
+                  <button 
+                    disabled={page === totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    className="px-4 py-2 border rounded text-sm bg-white disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

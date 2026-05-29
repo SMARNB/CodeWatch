@@ -17,9 +17,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Get user type from location state or default to 'admin'
-  const userType = location.state?.userType || 'admin';
+  const [toastMessage, setToastMessage] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -43,7 +41,7 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/login/', {
+      const response = await fetch('/api/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,8 +59,9 @@ const Login = () => {
         // Define Routes
         const dashboardRoutes = {
           'admin': '/admin/dashboard',
-          'ssd': '/ssd/notifications', // SSD seems to only have notifications per App.jsx
-          'department-head': '/department-head/dashboard'
+          'ssd': '/ssd/dashboard',
+          'department-head': '/department-head/dashboard',
+          'guard': '/guard/dashboard'
         };
 
         // Store User Data ONLY on success
@@ -73,10 +72,13 @@ const Login = () => {
 
         // Notify App
         window.dispatchEvent(new Event('userDataUpdated'));
+        
+        setToastMessage(`Welcome, ${data.userName}!`);
 
-        // Navigate
-        const targetRoute = dashboardRoutes[role] || '/dashboard';
-        navigate(targetRoute);
+        setTimeout(() => {
+          const targetRoute = dashboardRoutes[role] || '/dashboard';
+          navigate(targetRoute);
+        }, 1000);
       } else if (response.status === 401) {
         // Specific requirement for 401
         setError('Unauthorized: This email is not registered.');
@@ -94,20 +96,7 @@ const Login = () => {
   };
 
   const handleForgotPassword = () => {
-    navigate('/forgot-password', { state: { userType, email: formData.email } });
-  };
-
-  const handleBackToRoleSelection = () => {
-    navigate('/');
-  };
-
-  const getUserTypeLabel = () => {
-    const labels = {
-      admin: 'Admin',
-      ssd: 'SSD',
-      'department-head': 'Department Head'
-    };
-    return labels[userType] || 'User';
+    navigate('/forgot-password', { state: { email: formData.email } });
   };
 
   return (
@@ -127,8 +116,8 @@ const Login = () => {
         </div>
 
         {/* Title */}
-        <div className="absolute flex flex-col font-['Open_Sans:Bold',_sans-serif] font-bold inset-[13.81%_21.39%_68.6%_21.91%] justify-center leading-[0] text-[#3f4299] text-[32px] text-center">
-          <p className="leading-[normal]">{getUserTypeLabel()} Log In</p>
+        <div className="absolute flex flex-col font-['Open_Sans:Bold',_sans-serif] font-bold inset-[13.81%_21.39%_68.6%_21.91%] justify-center leading-[0] text-[#3f4299] text-[32px] text-center w-full" style={{left: '0'}}>
+          <p className="leading-[normal]">Code Watch Login</p>
         </div>
 
         {/* Subtitle */}
@@ -206,17 +195,12 @@ const Login = () => {
           </button>
         </div>
 
-        {/* Back to Role Selection */}
-        <div className="absolute inset-[88%_20%_5%_20%] flex justify-center items-center">
-          <TextButton
-            variant="secondary"
-            size="small"
-            className="text-center"
-            onClick={handleBackToRoleSelection}
-          >
-            ← Back to Role Selection
-          </TextButton>
-        </div>
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+            {toastMessage}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -321,7 +321,7 @@ const AddMemberModal = ({ onClose }) => {
       setIsSubmitting(true);
 
       // 1. Send data to Django Backend
-      const response = await fetch('http://127.0.0.1:8000/api/add-member/', {
+      const response = await fetch('/api/add-member/', {
         method: 'POST',
         body: submitData,
       });

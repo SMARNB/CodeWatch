@@ -1,384 +1,460 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPlayer from '../components/VideoPlayer';
-import ViolationTrack from '../components/ViolationTrack';
-import FeedbackForm from '../components/FeedbackForm';
-import UserProfileCard from '../components/UserProfileCard';
 import Logo from '../components/Logo';
 import backgroundEllipse from '../assets/background.svg';
+
+const SimpleTrackingFeed = ({ trackingFeedUrl, cameraId }) => {
+  const [frameSrc, setFrameSrc] = React.useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let timeout;
+
+    const loadFrame = () => {
+      if (!mounted) return;
+      const src = trackingFeedUrl
+        ? `${trackingFeedUrl}?nc=${Math.random()}`
+        : `/live_feed_${cameraId}.jpg?nc=${Math.random()}`;
+
+      fetch(src)
+        .then(res => res.blob())
+        .then(blob => {
+          if (!mounted) return;
+          const url = URL.createObjectURL(blob);
+          setFrameSrc(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+          });
+          timeout = setTimeout(loadFrame, 300);
+        })
+        .catch(() => {
+          if (mounted) timeout = setTimeout(loadFrame, 500);
+        });
+    };
+
+    loadFrame();
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [trackingFeedUrl, cameraId]);
+
+  return frameSrc ? (
+    <img
+      src={frameSrc}
+      alt="Live Tracking Feed"
+      className="w-full h-full object-contain"
+      style={{ background: '#1a1a2e' }}
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center" style={{ background: '#1a1a2e' }}>
+      <p className="text-gray-400">Loading feed...</p>
+    </div>
+  );
+};
 
 const NotificationDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // State for notification data
-  const [notificationData, setNotificationData] = useState(() => {
-    // Initialize notification data from location state or sessionStorage
-    // First, try to get from location state (same tab navigation)
-    if (location.state?.notification) {
-      return {
-        notification: location.state.notification,
-        userType: location.state.userType || localStorage.getItem('userType') || 'admin'
-      };
-    }
+  const [notification, setNotification] = useState(null);
+  const [personInfo, setPersonInfo] = useState(null);
+  const [movementHistory, setMovementHistory] = useState([]);
+  const [activeCamera, setActiveCamera] = useState(null);
+  const [trackingFeedUrl, setTrackingFeedUrl] = useState(null);
+  const [overlayText, setOverlayText] = useState('');
+  const [isCurrentlyDetected, setIsCurrentlyDetected] = useState(false);
 
-    // If not in state, check URL params for sessionStorage key (new tab)
-    const urlParams = new URLSearchParams(location.search);
-    const notificationKey = urlParams.get('key');
-
-    if (notificationKey) {
-      try {
-        const storedData = sessionStorage.getItem(notificationKey);
-        if (storedData) {
-          const data = JSON.parse(storedData);
-          // Clean up the sessionStorage item after reading (optional, kept for refresh safety if needed, but user said it expires)
-          // sessionStorage.removeItem(notificationKey); 
-          return data;
-        }
-      } catch (error) {
-        console.error('Error reading notification data from sessionStorage:', error);
-      }
-    }
-
-    // Fallback: return null notification, will fetch in useEffect
-    return {
-      notification: null,
-      userType: localStorage.getItem('userType') || 'admin'
-    };
-  });
-
-  const [notification, setNotification] = useState(notificationData.notification);
-  const userType = notificationData.userType || localStorage.getItem('userType') || 'admin';
-
-  // State management
-  const [violationEvents, setViolationEvents] = useState([]);
-  const [currentClipIndex, setCurrentClipIndex] = useState(0);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeStreamUrl, setActiveStreamUrl] = useState(null);
-  const [activeCamera, setActiveCamera] = useState("Initializing...");
+  const [error, setError] = useState('');
 
+  // Local storage user data
+  const userName = localStorage.getItem('userName') || 'User';
+  const userEmail = localStorage.getItem('userEmail') || 'user@example.com';
+  const userType = localStorage.getItem('userType') || 'admin';
 
-
-  // State for user data
-  const [user, setUser] = useState(null);
-
-  // Get user data from localStorage
   useEffect(() => {
-    const getUserData = () => {
-      const userEmail = localStorage.getItem('userEmail') || 'admin@company.com';
-      const userDisplayName = localStorage.getItem('userDisplayName') || 'User';
+    let pollInterval;
+    let pendingSwitchTimeout;
 
-      const prefix = userType === 'admin' ? 'ADM' :
-        userType === 'ssd' ? 'SSD' : 'DHD';
+    const pollData = async (personId, currentActiveCamera) => {
+      try {
+        const [liveRes, moveRes] = await Promise.all([
+          fetch(`/api/live-track/${personId}/`),
+          fetch(`/api/movement-history/${personId}/`)
+        ]);
 
-      setUser({
-        name: userDisplayName,
-        email: userEmail,
-        employeeId: `${prefix}001`,
-      });
+        let liveData = null;
+        if (liveRes.ok) {
+          liveData = await liveRes.json();
+          if (liveData.person) setPersonInfo(liveData.person);
+          if (liveData.tracking_feed_url) setTrackingFeedUrl(liveData.tracking_feed_url);
+        }
+
+        let moveData = [];
+        if (moveRes.ok) {
+          const moveDataResp = await moveRes.json();
+          moveData = moveDataResp.movement_history || [];
+          console.log('Movement API response:', moveDataResp);
+          setMovementHistory(moveData);
+        }
+
+        const camId = liveData?.current_camera_id || liveData?.active_camera_id;
+        const camName = liveData?.active_camera_name || camId;
+        const currentLoc = camId ? { id: camId, name: camName } : null;
+
+        if (currentLoc && currentLoc.id) {
+          setIsCurrentlyDetected(true);
+          // We have a current location
+          if (currentActiveCamera && currentActiveCamera.id !== currentLoc.id) {
+            // Camera is different, show switching overlay, wait 500ms, then switch
+            setOverlayText(`Switching to ${currentLoc.name}...`);
+            pendingSwitchTimeout = setTimeout(() => {
+              setActiveCamera(currentLoc);
+              setOverlayText('');
+            }, 500);
+          } else if (!currentActiveCamera) {
+            setActiveCamera(currentLoc);
+          } else {
+            // Same camera, do nothing but clear overlay
+            setOverlayText('');
+          }
+        } else {
+          setIsCurrentlyDetected(false);
+          // No current location, keep showing last known camera
+          if (moveData.length > 0) {
+            const lastMove = moveData[0];
+            setOverlayText(`Last seen at ${new Date(lastMove.entered_at).toLocaleTimeString()}`);
+            if (!currentActiveCamera) {
+              setActiveCamera({ id: lastMove.camera_id || lastMove.camera_name, name: lastMove.camera_name, time: lastMove.entered_at });
+            }
+          } else {
+            setOverlayText('');
+          }
+        }
+
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
     };
-    getUserData();
-  }, [userType]);
 
-  // Fetch violation events and notification details if missing
-  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError(null);
-
-      // Get ID from URL or existing notification
       const urlParams = new URLSearchParams(location.search);
-      const paramId = urlParams.get('id');
-      const notifId = notification?.id || paramId;
+      const notifId = urlParams.get('id');
 
       if (!notifId) {
-        setError("No notification ID provided.");
+        setError("No notification ID provided");
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch details from the new endpoint
-        const response = await fetch(`http://127.0.0.1:8000/api/notifications/${notifId}/`);
+        const notifRes = await fetch(`/api/notifications/${notifId}/`);
+        if (!notifRes.ok) throw new Error("Failed to fetch notification");
+        const notifData = await notifRes.json();
+        setNotification(notifData);
 
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+        const personId = notifData.person_id || notifData.violation?.person_id || notifData.related_person;
+
+        // Initial Camera from Notification
+        let initialCam = null;
+        if (notifData.camera_id) {
+          initialCam = { id: notifData.camera_id, name: notifData.camera_details?.name || notifData.camera_id };
+          setActiveCamera(initialCam);
+        } else if (notifData.camera_details) {
+          initialCam = { id: notifData.camera_details.camera_id, name: notifData.camera_details.name };
+          setActiveCamera(initialCam);
         }
 
-        const data = await response.json();
+        if (personId) {
+          // Start tracking
+          fetch('/api/live-track/start/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ person_id: personId })
+          }).catch(console.error);
 
-        // Update notification if it was missing or stale
-        // Backend returns: { id, title, message, type, is_read, timestamp, violation_events: [...] }
-        const mappedNotification = {
-          id: data.id,
-          title: data.title,
-          message: data.message,
-          type: data.type,
-          // Map backend type to frontend 'status' color logic
-          status: data.type === 'security' ? 'Red' :
-            data.type === 'system' ? 'Green' :
-              data.type === 'backup' ? 'Blue' : 'Yellow',
-          timestamp: data.timestamp,
-          personId: data.personId, // CHANGED: Added personId mapping
-        };
-
-        setNotification(mappedNotification);
-
-        // 2. Fetch Violation Events (New Endpoint)
-        try {
-          const eventsResponse = await fetch(`http://127.0.0.1:8000/api/notifications/${notifId}/violation-events/`);
-          if (eventsResponse.ok) {
-            const eventsData = await eventsResponse.json();
-            setViolationEvents(eventsData.events || []);
-          } else {
-            console.warn("Failed to fetch events from new endpoint, checking base response...");
-            // Fallback to data from first call if available (legacy support)
-            setViolationEvents(data.violation_events || []);
+          if (notifData.person_details) setPersonInfo(notifData.person_details);
+          await pollData(personId, initialCam);
+          pollInterval = setInterval(() => {
+            setActiveCamera(currentCam => {
+              pollData(personId, currentCam);
+              return currentCam;
+            });
+          }, 2000);
+        } else {
+          // Fallback for unknown person
+          setPersonInfo(null);
+          if (!initialCam) {
+            setActiveCamera({ id: 'CAM-001', name: 'CAM-001' });
           }
-        } catch (evErr) {
-          console.error("Error fetching events:", evErr);
-          setViolationEvents(data.violation_events || []);
         }
-
       } catch (err) {
-        console.error('Failed to fetch data:', err);
-        setError('Failed to load notification details. ' + err.message);
+        console.error(err);
+        setError("Failed to load notification details.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.search]); // Depend on location search to refetch if URL changes
 
-  // Polling for live camera handover
-  // Polling for live camera handover
-  useEffect(() => {
-    // CHANGED: Use personId from notification or specific target
-    const targetPersonId = notification?.personId;
-    if (!targetPersonId) return;
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (pendingSwitchTimeout) clearTimeout(pendingSwitchTimeout);
+      fetch('/api/live-track/stop/', { method: 'POST' }).catch(console.error);
+    };
+  }, [location.search]);
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/api/live-track/${targetPersonId}/`);
-        if (response.ok) {
-          const data = await response.json();
-          // If we get a valid stream and it's different, switch
-          if (data.stream_url && data.stream_url !== activeStreamUrl) {
-            console.log("Handover: Switching to camera", data.active_camera_name);
-            setActiveStreamUrl(data.stream_url);
-            setActiveCamera(data.active_camera_name); // CHANGED: Update camera name
-          }
-        }
-      } catch (err) {
-        console.error("Live track polling error:", err);
-      }
-    }, 2000);
-
-    return () => clearInterval(pollInterval);
-  }, [notification, activeStreamUrl]);
-
-  // Handle video clip ended
-  const handleClipEnded = () => {
-    if (currentClipIndex < violationEvents.length - 1) {
-      setCurrentClipIndex((prev) => prev + 1);
-    }
-  };
-
-  // Handle event click
-  const handleEventClick = (index) => {
-    setCurrentClipIndex(index);
-  };
-
-  // Handle feedback submission
-  const handleFeedbackSubmit = async (feedbackData) => {
+  const handlePostFeedback = async () => {
+    if (!feedbackText.trim()) return;
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/feedback/', {
+      const response = await fetch('/api/feedback/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...feedbackData,
-          notificationId: notification?.id
-        }),
+          violation_id: notification?.violation_log_id || notification?.id,
+          user_type: userType,
+          user_id: userEmail,
+          thoughts: feedbackText
+        })
       });
-
-      if (!response.ok) throw new Error("Feedback submission failed");
-
-      const result = await response.json();
-      console.log('Feedback submitted:', result);
-      return { success: true };
-    } catch (err) {
-      console.error('Failed to submit feedback:', err);
-      throw new Error('Failed to submit feedback. Please try again.');
+      if (response.ok) {
+        setToast('Feedback submitted');
+        setFeedbackText('');
+        setTimeout(() => setToast(''), 3000);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  // Handle window close
-  const handleClose = () => {
-    window.close();
-    if (!document.hidden) {
-      navigate(-1);
+  const getUserBadgeColor = (role) => {
+    switch ((role || '').toLowerCase()) {
+      case 'admin': return 'bg-indigo-100 text-[#3f4299] border-indigo-200';
+      case 'ssd': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'department-head': return 'bg-green-100 text-green-800 border-green-200';
+      case 'guard': return 'bg-orange-100 text-orange-800 border-orange-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const currentClipUrl = violationEvents[currentClipIndex]?.clipUrl || null;
+  const getClassificationBadge = (cls) => {
+    switch ((cls || '').toLowerCase()) {
+      case 'known':
+      case 'student':
+      case 'employee': return 'bg-green-100 text-green-800 border-green-200';
+      case 'unknown': return 'bg-red-100 text-red-800 border-red-200';
+      case 'blacklisted': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'visitor': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden flex items-center justify-center">
-        {/* Background Ellipse */}
-        <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-          <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
-        </div>
-        <div className="text-center z-10">
-          <div className="w-16 h-16 border-4 border-[#3f4299] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#3f4299] font-medium">Loading details...</p>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-[#f5f3ff] flex items-center justify-center font-sans">
+      <div className="w-8 h-8 border-4 border-[#3f4299] border-t-transparent rounded-full animate-spin"></div>
+    </div>;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden flex items-center justify-center">
-        <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
-          <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
-        </div>
-        <div className="bg-white p-8 rounded-lg shadow-lg z-10 text-center max-w-md">
-          <div className="text-red-500 mb-4">
-            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button onClick={handleClose} className="px-6 py-2 bg-[#3f4299] text-white rounded-lg hover:bg-[#2d3170] transition-colors">
-            Close
-          </button>
-        </div>
+      <div className="min-h-screen bg-[#f5f3ff] flex flex-col items-center justify-center font-sans space-y-4">
+        <p className="text-red-600 font-bold">{error}</p>
+        <button onClick={() => navigate(-1)} className="px-6 py-2 bg-[#3f4299] text-white rounded-lg font-medium">Go Back</button>
       </div>
     );
   }
 
+  const isUnknown = !notification?.person_id;
+
   return (
-    <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
-      {/* Background Ellipse */}
-      <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
+    <div className="min-h-screen bg-[#f5f3ff] relative overflow-hidden font-sans">
+      {/* Background styling */}
+      <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px] pointer-events-none">
         <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
-      {/* Navbar */}
-      <div className="relative bg-white shadow-sm border-b border-gray-200 w-full hover:shadow-md transition-shadow duration-300" style={{ height: '100px' }}>
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-full">
-          <div className="flex justify-between items-center h-full w-full">
-            {/* Logo */}
-            <div className="flex items-center" style={{ marginLeft: '20px' }}>
-              <Logo size="default" showText={false} />
-            </div>
-
-            {/* Title */}
-            <div className="flex-1 flex justify-center">
-              <h1 className="text-2xl font-bold text-[#3f4299] text-center tracking-wide">
-                Code Watch
-              </h1>
-            </div>
-
-            {/* Close Button */}
-            <div className="flex items-center" style={{ marginRight: '20px' }}>
-              <button
-                onClick={handleClose}
-                className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-[#3f4299] hover:bg-[#e0e1ff] rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#3f4299]"
-                aria-label="Close"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
+      {/* HEADER BAR */}
+      <div className="relative bg-white shadow-sm border-b border-gray-200 w-full h-[80px] z-10 flex items-center px-6 justify-between">
+        <div className="flex items-center gap-4" style={{ marginLeft: '50px' }}>
+          <Logo size="large" showText={false} />
         </div>
+        <h1 className="text-2xl font-bold text-[#3f4299] absolute left-1/2 -translate-x-1/2">
+          Live Tracking Details
+        </h1>
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
 
-      {/* Main Content */}
-      <div className="relative w-full max-w-[1920px] mx-auto px-6 lg:px-12 pt-8 pb-12">
-        {/* Header Section */}
-        <div className="mb-8 pl-4 border-l-4 border-[#3f4299]">
-          <h1 className="text-3xl font-bold text-[#3f4299]">
-            {activeStreamUrl ? `Live Tracking: ${activeCamera}` : (notification?.message || 'Notification Details')}
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            {notification?.timestamp ? new Date(notification.timestamp).toLocaleString() : ''}
-            {notification?.type && <span className={`ml-3 px-2 py-1 rounded-full text-xs font-semibold uppercase ${notification.status === 'Red' ? 'bg-red-100 text-red-700' :
-              notification.status === 'Green' ? 'bg-green-100 text-green-700' :
-                notification.status === 'Blue' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-              {notification.type}
-            </span>}
-          </p>
-        </div>
+      <div className="page-container relative w-full z-10" style={{ display: 'flex', gap: '20px', padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column: Media & Details */}
-          <div className="flex-1 space-y-8">
-            {/* Video & Events Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Video Player */}
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-1">
-                <VideoPlayer
-                  clipUrl={activeStreamUrl || currentClipUrl}
-                  placeholder="Loading violation clip..."
-                  onEnded={handleClipEnded}
-                  autoPlay={true}
-                  muted={false}
-                />
-                {violationEvents.length > 0 && (
-                  <div className="p-3 text-center bg-gray-50 border-t border-gray-100">
-                    <p className="text-sm font-medium text-gray-600">
-                      Playing Clip {currentClipIndex + 1} of {violationEvents.length}
-                    </p>
-                  </div>
+        {/* === LEFT COLUMN (65%) === */}
+        <div className="left-column" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* SECTION A — Single Live Camera Feed */}
+          <div className="bg-gray-900 rounded-lg overflow-hidden shadow-sm relative flex items-center justify-center border border-gray-800" style={{ aspectRatio: '16/9', width: '100%' }}>
+            {/* Always render the tracking feed - never unmount it */}
+            <SimpleTrackingFeed
+              trackingFeedUrl={trackingFeedUrl}
+              cameraId={activeCamera?.id || notification?.camera_id || notification?.camera_details?.camera_id || 'CAM-001'}
+            />
+
+            {/* Overlay the fallback message ON TOP when not detected */}
+            {!isCurrentlyDetected && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 z-10">
+                <div className="w-[200px] h-[200px] rounded-full border-4 border-gray-700 shadow-lg overflow-hidden mb-6 bg-gray-800 flex items-center justify-center">
+                  {personInfo?.photo_url || notification?.violation_details?.snapshot_url ? (
+                    <img src={personInfo?.photo_url || notification?.violation_details?.snapshot_url} alt="Subject Snapshot" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-gray-500 font-bold text-5xl">?</span>
+                  )}
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2 animate-pulse">Subject not currently detected</h2>
+                {movementHistory.length > 0 ? (
+                  <p className="text-lg text-gray-400">Last seen: {movementHistory[0].camera_name} at {new Date(movementHistory[0].entered_at).toLocaleTimeString()}</p>
+                ) : (
+                  <p className="text-lg text-gray-400">Last seen: {notification?.camera_details?.name || notification?.camera_id || 'Unknown Location'}</p>
                 )}
               </div>
+            )}
 
-              {/* Violation Track List */}
-              <div className="h-full min-h-[400px]">
-                <ViolationTrack
-                  eventsList={violationEvents}
-                  activeIndex={currentClipIndex}
-                  onEventClick={handleEventClick}
-                />
+            {overlayText && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-md px-6 py-3 rounded-full text-white text-sm font-medium shadow-lg animate-fade-in-up z-30">
+                {overlayText}
               </div>
-            </div>
-
-            {/* Feedback Form */}
-            <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 p-6 border border-gray-100">
-              <h3 className="text-lg font-bold text-[#3f4299] mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Provide Feedback
-              </h3>
-              <FeedbackForm
-                user={user}
-                onSubmit={handleFeedbackSubmit}
-                notificationId={notification?.id}
-              />
-            </div>
+            )}
           </div>
 
-          {/* Right Column: User Profile */}
-          <div className="w-full lg:w-80 flex-shrink-0">
-            <div className="sticky top-8">
-              {user && <UserProfileCard user={user} />}
+          {/* SECTION B — Feedback */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-[#3f4299]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+              Feedback
+            </h3>
+            <textarea
+              className="w-[calc(100%-20px)] h-[100px] border border-[#bab6b6] rounded-[8px] text-[14px] outline-none focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299] resize-none mb-4"
+              style={{ marginLeft: '10px', marginRight: '10px', marginBottom: '10px', padding: '10px' }}
+              placeholder="Share Your Thoughts..."
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+            />
+            <div className="flex items-center justify-between w-full">
+              <div className="flex justify-between w-full">
+                <button
+                  onClick={handlePostFeedback}
+                  className="px-8 py-2 h-[48px] bg-[#3f4299] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#2d3170] transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:ring-offset-2"
+                  style={{ minWidth: '120px', marginLeft: '10px', marginBottom: '10px' }}
+                >
+                  Post
+                </button>
+                <button
+                  onClick={() => navigate('/analytics', { state: { notification, personInfo } })}
+                  className="px-6 h-[48px] text-[#3f4299] hover:underline text-[14px] font-semibold transition-colors focus:outline-none"
+                  style={{ marginLeft: '10px', marginRight: '10px' }}
+                >Generate Report
+                </button>
+              </div>
+              {toast && <span className="text-green-600 font-medium text-sm animate-pulse">{toast}</span>}
             </div>
           </div>
         </div>
+
+        {/* === RIGHT COLUMN (35%) === */}
+        <div className="right-column" style={{ flex: '0 0 32%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* SECTION C — Logged-In User Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col items-center text-center" style={{ padding: '16px' }}>
+            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-[#3f4299] font-bold text-2xl mb-3 border-2 border-white shadow-sm">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <h2 className="text-md font-bold text-gray-900">{userName}</h2>
+            <p className="text-xs text-gray-500 mb-2">{userEmail}</p>
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getUserBadgeColor(userType)}`}>
+              {userType}
+            </span>
+          </div>
+
+          {/* SECTION D — Violator Details Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col text-center" style={{ padding: '16px' }}>
+            <div className="mx-auto w-20 h-20 rounded-full border-2 border-white shadow-sm overflow-hidden mb-3 bg-gray-100 flex items-center justify-center">
+              {personInfo?.photo_url || notification?.violation_details?.snapshot_url ? (
+                <img src={personInfo?.photo_url || notification?.violation_details?.snapshot_url} alt="Violator" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-gray-400 font-bold text-3xl">?</span>
+              )}
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">{isUnknown ? 'Unknown Person' : (personInfo?.name || 'Unknown Person')}</h2>
+            <p className="text-xs text-gray-500 font-medium mb-3">{personInfo?.employee_id ? `ID: ${personInfo.employee_id}` : 'ID: N/A'}</p>
+
+            <div className="w-full border-t border-gray-100 py-2 text-left">
+              <p className="text-sm text-gray-900 font-bold mb-1">{notification?.violation_details?.type || notification?.title || 'Unknown Violation'}</p>
+              <p className="text-xs text-gray-500">Started: {notification?.timestamp ? new Date(notification.timestamp).toLocaleTimeString() : 'N/A'}</p>
+              <p className="text-xs text-gray-500 mt-1">Violation #{notification?.violation_log_id || notification?.id || 'N/A'}</p>
+            </div>
+
+            <div className="w-full border-t border-gray-100 pt-3 flex flex-col items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border capitalize shadow-sm ${getClassificationBadge(isUnknown ? 'unknown' : personInfo?.classification)}`}>
+                {isUnknown ? 'Unknown' : (personInfo?.classification || 'Unknown')}
+              </span>
+              {personInfo?.violation_count > 0 && (
+                <span className="text-xs font-bold text-red-600">Total Violations: {personInfo.violation_count}</span>
+              )}
+            </div>
+          </div>
+
+          {/* SECTION E — Camera Movement Log */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ maxHeight: '400px', overflowY: 'auto', padding: '16px 36px 16px 40px' }}>
+            <h3 className="text-md font-bold text-gray-800 mb-4">Camera Movement Log</h3>
+            <div className="relative pl-4 space-y-4">
+              {movementHistory.length > 0 ? movementHistory.map((move, idx) => {
+                const isLatest = idx === 0;
+                return (
+                  <div key={idx} className="relative flex items-start group">
+                    <div className={`absolute -left-[23px] flex items-center justify-center w-4 h-4 rounded-full border-2 border-white shadow-sm z-10 ${isLatest ? 'bg-green-500 animate-[pulse_1.5s_ease-in-out_infinite]' : 'bg-gray-300'}`}></div>
+                    <div className="w-full pl-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs ${isLatest ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{move.camera_name}</span>
+                          {isLatest && <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded font-bold tracking-wider">CURRENT</span>}
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-gray-500 mb-1">{move.location_description}</div>
+                      <div className="flex justify-between items-center text-[10px] text-gray-400 font-medium">
+                        <time>{new Date(move.entered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                        {move.duration && <span>Duration: {move.duration}</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }) : (
+                <p className="text-sm text-gray-500 italic relative z-10 pl-2">No movement history recorded yet.</p>
+              )}
+            </div>
+          </div>
+
+        </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in-up {
+          0% { opacity: 0; transform: translate(-50%, 10px); }
+          100% { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };
 
 export default NotificationDetailsPage;
-
-

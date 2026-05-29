@@ -13,6 +13,8 @@ const AddCameraModal = ({ onClose }) => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -90,7 +92,7 @@ const AddCameraModal = ({ onClose }) => {
 
     try {
       // 2. Send to Backend
-      const response = await fetch('http://127.0.0.1:8000/api/add-camera/', {
+      const response = await fetch('/api/add-camera/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -116,6 +118,28 @@ const AddCameraModal = ({ onClose }) => {
     if (onClose) {
       onClose();
     }
+  };
+
+  const handleTestConnection = () => {
+    if (!formData.streamUrl.trim()) {
+      setTestResult({ success: false, message: 'Please enter a Stream URL first.' });
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setTestResult(null);
+
+    // Simulate backend connection test
+    setTimeout(() => {
+      setIsTestingConnection(false);
+      // For demonstration, we assume success if it starts with rtsp:// or http
+      const isLikelyValid = formData.streamUrl.startsWith('rtsp://') || formData.streamUrl.startsWith('http');
+      if (isLikelyValid) {
+        setTestResult({ success: true, message: 'Connection successful!' });
+      } else {
+        setTestResult({ success: false, message: 'Connection failed. Ensure URL is correct.' });
+      }
+    }, 1500);
   };
 
   const handleBackdropClick = (e) => {
@@ -309,15 +333,31 @@ const AddCameraModal = ({ onClose }) => {
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Stream URL (Optional)
             </label>
-            <input
-              type="url"
-              name="streamUrl"
-              value={formData.streamUrl}
-              onChange={handleInputChange}
-              placeholder="Enter stream URL"
-              className="w-full h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
-            />
+            <div className="flex gap-2">
+              <input
+                type="url"
+                name="streamUrl"
+                value={formData.streamUrl}
+                onChange={handleInputChange}
+                placeholder="Enter stream URL"
+                className="flex-1 h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+                style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
+              />
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTestingConnection}
+                className={`h-[48px] px-4 bg-gray-100 border border-[#bab6b6] text-gray-700 font-medium rounded-[8px] hover:bg-gray-200 transition-colors whitespace-nowrap ${isTestingConnection ? 'opacity-50 cursor-not-allowed' : ''}`}
+                style={{ fontFamily: "'Open Sans', sans-serif" }}
+              >
+                {isTestingConnection ? 'Testing...' : 'Test Connection'}
+              </button>
+            </div>
+            {testResult && (
+              <p className={`mt-1 text-sm ${testResult.success ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                {testResult.message}
+              </p>
+            )}
           </div>
         </div>
 

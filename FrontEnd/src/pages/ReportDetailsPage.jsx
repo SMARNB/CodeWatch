@@ -79,46 +79,40 @@ const ReportDetailsPage = () => {
             throw new Error("No Report ID provided");
         }
 
-        // 2. Fetch ALL reports from API
-        const response = await fetch('http://127.0.0.1:8000/api/get-reports/');
+        // 2. Fetch specific report from API
+        const response = await fetch(`/api/reports/${reportId}/`);
         
         if (response.ok) {
-            const data = await response.json();
+            const report = await response.json();
             
-            // 3. Find the specific report (Loose equality for string vs int)
-            const report = data.find(r => r.id == reportId);
-
-            if (report) {
-                // Parse the JSON string back into an Object
-                let parsedAnalytics = null;
+            // Parse the JSON string back into an Object if not already parsed by backend
+            // Our backend now returns 'analytics_data' directly, but let's be safe
+            let parsedAnalytics = report.analytics_data;
+            if (!parsedAnalytics && report.analytics_json) {
                 try {
-                    if (report.analytics_json) {
-                        parsedAnalytics = JSON.parse(report.analytics_json);
-                    }
+                    parsedAnalytics = JSON.parse(report.analytics_json);
                 } catch (e) {
                     console.error("Could not parse analytics data", e);
                 }
-
-                setReportData({
-                    id: report.custom_id,
-                    description: report.description,
-                    message: report.message,
-                    date: new Date(report.date),
-                    status: report.status,
-                    type: report.type,
-                    priority: report.priority,
-                    
-                    // Filters are usually part of the analytics data now
-                    filters: parsedAnalytics ? parsedAnalytics.filters : null,
-                    
-                    // Pass the parsed data to the charts
-                    analyticsData: parsedAnalytics 
-                });
-            } else {
-                setError('Report not found in database');
             }
+
+            setReportData({
+                id: report.custom_id,
+                description: report.description,
+                message: report.message,
+                date: new Date(report.date),
+                status: report.status,
+                type: report.type,
+                priority: report.priority,
+                
+                // Filters are usually part of the analytics data now
+                filters: parsedAnalytics ? parsedAnalytics.filters : null,
+                
+                // Pass the parsed data to the charts
+                analyticsData: parsedAnalytics 
+            });
         } else {
-            setError('Failed to connect to database');
+            setError('Failed to connect to database or report not found');
         }
       } catch (err) {
         console.error('Error loading report:', err);
@@ -394,6 +388,78 @@ const ReportDetailsPage = () => {
                 {reportData.analyticsData.timelineData && reportData.analyticsData.timelineData.length > 0 && (
                   <div className="mb-6" style={{ marginBottom: '20px' }}>
                     <ViolationTimeline timelineData={reportData.analyticsData.timelineData} />
+                  </div>
+                )}
+                
+                {/* Violator Movement Summary */}
+                {reportData.analyticsData.movement_summary && reportData.analyticsData.movement_summary.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6" style={{ marginBottom: '20px' }}>
+                    <h3 className="text-xl font-bold text-[#3f4299] mb-4">Violator Movement Summary</h3>
+                    
+                    {reportData.analyticsData.violator_details && (
+                        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-100 grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="text-gray-500">Name</p>
+                                <p className="font-semibold text-gray-900">{reportData.analyticsData.violator_details.name}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">ID</p>
+                                <p className="font-semibold text-gray-900">{reportData.analyticsData.violator_details.employee_id}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Department</p>
+                                <p className="font-semibold text-gray-900">{reportData.analyticsData.violator_details.department}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Classification</p>
+                                <p className="font-semibold capitalize px-2 py-0.5 inline-block rounded bg-indigo-100 text-indigo-800">{reportData.analyticsData.violator_details.classification}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Total Time on Premises</p>
+                                <p className="font-semibold text-gray-900">
+                                    {reportData.analyticsData.total_time_seconds 
+                                        ? Math.round(reportData.analyticsData.total_time_seconds / 60) + ' minutes' 
+                                        : 'Unknown'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Cameras Visited</p>
+                                <p className="font-semibold text-gray-900">{reportData.analyticsData.cameras_visited_count || 0}</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <h4 className="font-semibold text-gray-800 mb-4">Movement Path</h4>
+                    <div className="relative pl-6 space-y-6 before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 before:to-transparent">
+                      {reportData.analyticsData.movement_summary.map((move, idx) => {
+                        const isLatest = idx === 0;
+                        return (
+                          <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div className={`flex items-center justify-center w-6 h-6 rounded-full border-4 border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${isLatest ? 'bg-green-500 animate-pulse' : 'bg-[#3f4299]'}`}></div>
+                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-gray-200 bg-gray-50 shadow-sm">
+                              <div className="flex items-center justify-between space-x-2 mb-1">
+                                <div className="font-bold text-gray-900">{move.camera_name}</div>
+                                <time className="text-xs font-medium text-indigo-600">{move.entered_at ? new Date(move.entered_at).toLocaleTimeString() : 'Unknown'}</time>
+                              </div>
+                              <div className="text-sm text-gray-500">{move.location}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {reportData.analyticsData.snapshots && reportData.analyticsData.snapshots.length > 0 && (
+                        <div className="mt-8">
+                            <h4 className="font-semibold text-gray-800 mb-4">Violation Snapshots</h4>
+                            <div className="flex flex-wrap gap-4">
+                                {reportData.analyticsData.snapshots.map((snap, idx) => (
+                                    <div key={idx} className="w-[120px] h-[120px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                                        <img src={snap} alt={`Snapshot ${idx}`} className="w-full h-full object-cover" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                   </div>
                 )}
               </>

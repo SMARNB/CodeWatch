@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 const VideoPlayer = ({ 
   streamUrl, 
   clipUrl, 
+  trackingFeedUrl,
+  cameraId,
+  cameraName,
   placeholder = 'Loading feed...', 
   className = '',
   onEnded,
@@ -26,10 +29,11 @@ const VideoPlayer = ({
     let interval;
     if (!isClip) {
       // If it's LIVE, refresh the image 10 times a second (10 FPS)
+      const refreshRate = trackingFeedUrl ? 500 : 200;
       interval = setInterval(() => {
-        setLiveImageTimestamp(Date.now());
-        setIsLoading(false); // Assume it's loading once the interval starts
-      }, 100);
+    	setLiveImageTimestamp(Date.now());
+   	setIsLoading(false);	
+      }, refreshRate);;
     }
     return () => clearInterval(interval);
   }, [isClip]);
@@ -64,23 +68,33 @@ const VideoPlayer = ({
             onEnded={handleEnded}
           />
         ) : (
-          /* ==================== LIVE STREAM MODE (Image Refresh) ==================== */
-          /* We ignore streamUrl and hardcode the local file path for the demo */
-          <img 
-            src={`/live_feed.jpg?t=${liveImageTimestamp}`}
-            alt="Live AI Stream"
-            className="w-full h-full object-contain"
-            onError={(e) => { 
-                // Don't show broken image icon, just keep previous frame or black
-                e.target.style.display = 'none'; 
-                setHasError(true);
-            }}
-            onLoad={(e) => {
-                e.target.style.display = 'block';
-                setHasError(false);
-                setIsLoading(false);
-            }}
-          />
+          /* ==================== LIVE STREAM MODE (Image Refresh or External URL) ==================== */
+          (streamUrl && (streamUrl.startsWith('http') || streamUrl.startsWith('rtsp')) && !cameraId) ? (
+            <video
+              className="absolute inset-0 w-full h-full object-contain"
+              src={streamUrl}
+              autoPlay={autoPlay}
+              muted={muted}
+              onLoadStart={handleLoadStart}
+              onLoadedData={handleLoadedData}
+              onError={handleError}
+            />
+          ) : (
+            <img 
+              src={trackingFeedUrl ? `${trackingFeedUrl}?t=${liveImageTimestamp}` : cameraId ? `/live_feed_${cameraId}.jpg?t=${liveImageTimestamp}` : `/live_feed.jpg?t=${liveImageTimestamp}`}
+              alt="Live AI Stream"
+              className="w-full h-full object-contain"
+              onError={(e) => { 
+                  //e.target.style.display = 'none'; 
+                  //setHasError(true);
+              }}
+              onLoad={(e) => {
+                  e.target.style.display = 'block';
+                  setHasError(false);
+                  setIsLoading(false);
+              }}
+            />
+          )
         )}
         
         {/* Loading Overlay (Shared) */}
@@ -99,6 +113,15 @@ const VideoPlayer = ({
           </div>
         )}
       </div>
+
+      {/* Camera Name UI */}
+      {cameraName && (
+        <div className="absolute top-4 left-4 z-20">
+          <div className="bg-black/60 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-white/10">
+            {cameraName}
+          </div>
+        </div>
+      )}
 
       {/* Live Indicator UI (Only for Live) */}
       {!isClip && (

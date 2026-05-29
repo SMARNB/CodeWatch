@@ -61,15 +61,25 @@ const ReportItem = ({ reportId, description, onUpdate, onDelete, onClick, report
         {/* Left side - Report Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-4">
+            {report.snapshot_url && (
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
+                <img src={report.snapshot_url} alt="Violation Snapshot" className="w-full h-full object-cover" />
+              </div>
+            )}
             <div className="flex-shrink-0">
               <span className="text-sm font-semibold text-[#3f4299]" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {reportId}
               </span>
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex items-center gap-3">
               <p className="text-sm text-gray-700 truncate" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {description}
               </p>
+              {report.movement_summary && report.movement_summary.length > 0 && (
+                <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium shrink-0">
+                  1 Violator
+                </span>
+              )}
             </div>
           </div>
         </div>

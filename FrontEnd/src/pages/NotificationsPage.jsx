@@ -22,7 +22,7 @@ const NotificationsPage = ({ userType: propUserType }) => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://127.0.0.1:8000/api/notifications/');
+      const response = await fetch('/api/notifications/');
       if (response.ok) {
         const data = await response.json();
         const mappedData = data.map(n => ({
@@ -94,7 +94,7 @@ const NotificationsPage = ({ userType: propUserType }) => {
     }));
 
     // Open notification details page in a new tab
-    const url = `/notification-details?key=${encodeURIComponent(notificationKey)}`;
+    const url = `/notification-details?id=${notification.id}`;
     window.open(url, '_blank');
   };
 

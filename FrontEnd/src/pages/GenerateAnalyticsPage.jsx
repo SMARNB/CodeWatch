@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import VideoThumbnails from '../components/VideoThumbnails';
 import StatCard from '../components/StatCard';
@@ -8,6 +9,9 @@ import ViolationTimeline from '../components/ViolationTimeline';
 import './GenerateAnalyticsPage.css';
 
 const GenerateAnalyticsPage = () => {
+  const location = useLocation();
+  const { personInfo, violationEvents, includeMovementHistory: initialIncludeMovement } = location.state || {};
+
   // Filter dropdown states
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [isDepartmentOpen, setIsDepartmentOpen] = useState(false);
@@ -27,6 +31,7 @@ const GenerateAnalyticsPage = () => {
   const [timelineData, setTimelineData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [includeMovementHistory, setIncludeMovementHistory] = useState(initialIncludeMovement || false);
 
   // Refs for dropdown menus to handle click outside
   const genderRef = useRef(null);
@@ -307,7 +312,7 @@ const GenerateAnalyticsPage = () => {
 
     try {
       // 2. Call Django Backend to get Stats
-      const response = await fetch('http://127.0.0.1:8000/api/get-analytics/', {
+      const response = await fetch('/api/get-analytics/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(filters)
@@ -347,7 +352,7 @@ Statistics Summary:
       `.trim();
 
       // Use the existing 'send-report' API to save this record
-      await fetch('http://127.0.0.1:8000/api/send-report/', {
+      await fetch('/api/send-report/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -356,6 +361,7 @@ Statistics Summary:
           subject: `Analytics Report: ${new Date().toLocaleDateString()}`,
           priority: 'Low',
           message: summaryMessage,
+          personId: (includeMovementHistory && personInfo) ? personInfo.id : null,
           // ADD THIS LINE BELOW:
           analytics_json: JSON.stringify(analyticsData)
         })
@@ -677,6 +683,19 @@ Statistics Summary:
             >
               Select All
             </button>
+            
+            {/* Include Movement History Checkbox */}
+            {personInfo && (
+              <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeMovementHistory}
+                  onChange={(e) => setIncludeMovementHistory(e.target.checked)}
+                  className="w-4 h-4 text-[#3f4299] border-gray-300 rounded focus:ring-[#3f4299]"
+                />
+                <span style={{ fontFamily: "'Open Sans', sans-serif" }}>Include Movement History for {personInfo.name}</span>
+              </label>
+            )}
 
             {/* Generate Analytics Button */}
             <button
