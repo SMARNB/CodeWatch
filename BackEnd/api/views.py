@@ -91,7 +91,7 @@ def add_member(request):
             name=name,
             employee_id=employee_id,
             email=email,
-            role=role,
+            role=role or None,
             department=data.get('department'),
             phone=data.get('phone')
         )
@@ -129,9 +129,15 @@ def add_member(request):
             # ---------------------------
 
         # 2. Check if this role requires a System Login
-        SYSTEM_ROLES = ['admin', 'ssd', 'department-head']
-        if role in SYSTEM_ROLES:
-            # Create Django User
+        SYSTEM_ROLES = ['admin', 'ssd', 'department-head', 'guard']
+        
+        has_access_flag = data.get('has_software_access', None)
+        if has_access_flag is None:
+            create_account = role in SYSTEM_ROLES
+        else:
+            create_account = str(has_access_flag).lower() == 'true' and role in SYSTEM_ROLES
+
+        if create_account:
             # Create Django User
             # username = email (for consistency with login_view)
             username = email

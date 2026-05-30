@@ -5,11 +5,13 @@ const AddMemberModal = ({ onClose }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     role: '',
     employeeId: '',
     department: '',
     phoneNumber: '',
-    profilePicture: null
+    profilePicture: null,
+    hasSoftwareAccess: false
   });
 
   const [errors, setErrors] = useState({});
@@ -45,6 +47,7 @@ const AddMemberModal = ({ onClose }) => {
       'admin': 'ADM',
       'department-head': 'DHD',
       'ssd': 'SSD',
+      'guard': 'GRD',
       'employee': 'EMP',
       'student': 'STU'
     };
@@ -268,15 +271,19 @@ const AddMemberModal = ({ onClose }) => {
     if (!formData.name.trim()) {
       newErrors.name = 'Please enter a name';
     }
-    if (!formData.role) {
-      newErrors.role = 'Please assign a role';
+    if (formData.hasSoftwareAccess) {
+      if (!formData.role) {
+        newErrors.role = 'Please assign a role';
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      }
+      if (!formData.password?.trim()) {
+        newErrors.password = 'Password is required';
+      }
     }
     if (!formData.employeeId.trim()) {
       newErrors.employeeId = 'Please enter an Employee ID';
-    }
-    // Email is auto-generated, but we can validate it exists
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
     }
     if (!formData.department.trim()) {
       newErrors.department = 'Please enter a department';
@@ -288,15 +295,19 @@ const AddMemberModal = ({ onClose }) => {
     }
 
     // Handle form submission here if needed
+    // Handle form submission here if needed
     // Create FormData for file upload
     const submitData = new FormData();
+    submitData.append('has_software_access', formData.hasSoftwareAccess);
     submitData.append('name', formData.name);
     submitData.append('email', formData.email);
     submitData.append('role', formData.role);
     submitData.append('employee_id', formData.employeeId);
     submitData.append('department', formData.department);
     submitData.append('phone', formData.phoneNumber || '');
-    submitData.append('password', formData.password || 'password123'); // Send password or fallback
+    if (formData.hasSoftwareAccess) {
+      submitData.append('password', formData.password || 'password123'); // Send password or fallback
+    }
     if (formData.profilePicture) {
       submitData.append('profile_picture', formData.profilePicture);
     }
@@ -354,7 +365,7 @@ const AddMemberModal = ({ onClose }) => {
     }
   };
 
-  const roles = ['Admin', 'Department Head', 'SSD', 'Employee', 'Student'];
+  const roles = ['Admin', 'SSD', 'Department Head', 'Guard'];
 
   return (
     <div
@@ -401,6 +412,35 @@ const AddMemberModal = ({ onClose }) => {
 
         {/* Modal Body */}
         <div className="space-y-5 overflow-y-auto flex-1" style={{ padding: '10px' }}>
+          
+          {/* Grant Software Access Toggle */}
+          <div className="flex flex-col bg-gray-50 p-4 rounded-[8px] border border-gray-200">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                Grant Software Access
+              </label>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={formData.hasSoftwareAccess}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      hasSoftwareAccess: checked,
+                      ...(checked ? {} : { role: '', email: '', password: '' })
+                    }));
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3f4299]"></div>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+              Everyone is tracked on camera. Turn this on only if the person also needs a login to the software.
+            </p>
+          </div>
+
           {/* Profile Picture Upload */}
           <div className="flex flex-col items-center">
             <div className="relative">
@@ -476,6 +516,7 @@ const AddMemberModal = ({ onClose }) => {
           </div>
 
           {/* Email Input (Auto-generated, read-only) */}
+          {formData.hasSoftwareAccess && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Email <span className="text-gray-500 text-xs">(Auto-generated)</span>
@@ -494,8 +535,10 @@ const AddMemberModal = ({ onClose }) => {
               </p>
             )}
           </div>
+          )}
 
           {/* Assign role Dropdown */}
+          {formData.hasSoftwareAccess && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Assign role
@@ -531,18 +574,19 @@ const AddMemberModal = ({ onClose }) => {
               </p>
             )}
           </div>
+          )}
 
           {/* Employee ID Input (Auto-generated based on role, but editable) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              Employee ID <span className="text-gray-500 text-xs">(Auto-generated)</span>
+              Employee ID {formData.hasSoftwareAccess && <span className="text-gray-500 text-xs">(Auto-generated)</span>}
             </label>
             <input
               type="text"
               name="employeeId"
               value={formData.employeeId}
               onChange={handleInputChange}
-              placeholder="ID will be generated based on role"
+              placeholder={formData.hasSoftwareAccess ? "ID will be generated based on role" : "Enter Employee/Student ID manually"}
               className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.employeeId
                 ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
                 : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
@@ -602,6 +646,7 @@ const AddMemberModal = ({ onClose }) => {
           </div>
 
           {/* Password Input (Auto-generated/Editable) */}
+          {formData.hasSoftwareAccess && (
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
@@ -636,6 +681,7 @@ const AddMemberModal = ({ onClose }) => {
               </p>
             )}
           </div>
+          )}
 
           {/* Multiple Images Upload */}
           <div>
