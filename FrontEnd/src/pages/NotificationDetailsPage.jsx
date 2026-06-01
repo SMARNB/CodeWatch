@@ -3,56 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPlayer from '../components/VideoPlayer';
 import Logo from '../components/Logo';
 import backgroundEllipse from '../assets/background.svg';
-
-const SimpleTrackingFeed = ({ trackingFeedUrl, cameraId }) => {
-  const [frameSrc, setFrameSrc] = React.useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-    let timeout;
-
-    const loadFrame = () => {
-      if (!mounted) return;
-      const src = trackingFeedUrl
-        ? `${trackingFeedUrl}?nc=${Math.random()}`
-        : `/live_feed_${cameraId}.jpg?nc=${Math.random()}`;
-
-      fetch(src)
-        .then(res => res.blob())
-        .then(blob => {
-          if (!mounted) return;
-          const url = URL.createObjectURL(blob);
-          setFrameSrc(prev => {
-            if (prev) URL.revokeObjectURL(prev);
-            return url;
-          });
-          timeout = setTimeout(loadFrame, 300);
-        })
-        .catch(() => {
-          if (mounted) timeout = setTimeout(loadFrame, 500);
-        });
-    };
-
-    loadFrame();
-    return () => {
-      mounted = false;
-      clearTimeout(timeout);
-    };
-  }, [trackingFeedUrl, cameraId]);
-
-  return frameSrc ? (
-    <img
-      src={frameSrc}
-      alt="Live Tracking Feed"
-      className="w-full h-full object-contain"
-      style={{ background: '#1a1a2e' }}
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center" style={{ background: '#1a1a2e' }}>
-      <p className="text-gray-400">Loading feed...</p>
-    </div>
-  );
-};
+import SimpleTrackingFeed from '../components/SimpleTrackingFeed';
 
 const NotificationDetailsPage = () => {
   const navigate = useNavigate();
@@ -68,6 +19,7 @@ const NotificationDetailsPage = () => {
 
   const [feedbackText, setFeedbackText] = useState('');
   const [toast, setToast] = useState('');
+  const [toastType, setToastType] = useState('success');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -213,23 +165,32 @@ const NotificationDetailsPage = () => {
   const handlePostFeedback = async () => {
     if (!feedbackText.trim()) return;
     try {
-      const response = await fetch('/api/feedback/', {
+      const response = await fetch('/api/submit-feedback-report/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          person_id: notification?.person_id || null,
           violation_id: notification?.violation_log_id || notification?.id,
-          user_type: userType,
-          user_id: userEmail,
+          userType: userType,
+          userId: userEmail,
           thoughts: feedbackText
         })
       });
       if (response.ok) {
-        setToast('Feedback submitted');
+        setToast('Posted — added to Previous Reports');
+        setToastType('success');
         setFeedbackText('');
+        setTimeout(() => setToast(''), 3000);
+      } else {
+        setToast('Could not post feedback');
+        setToastType('error');
         setTimeout(() => setToast(''), 3000);
       }
     } catch (e) {
       console.error(e);
+      setToast('Could not post feedback');
+      setToastType('error');
+      setTimeout(() => setToast(''), 3000);
     }
   };
 
@@ -363,7 +324,7 @@ const NotificationDetailsPage = () => {
                 >Generate Report
                 </button>
               </div>
-              {toast && <span className="text-green-600 font-medium text-sm animate-pulse">{toast}</span>}
+              {toast && <span className={`font-medium text-sm animate-pulse ${toastType === 'error' ? 'text-red-600' : 'text-green-600'}`}>{toast}</span>}
             </div>
           </div>
         </div>

@@ -59,25 +59,42 @@ const Login = () => {
         // Define Routes
         const dashboardRoutes = {
           'admin': '/admin/dashboard',
-          'ssd': '/ssd/dashboard',
+          'ssd': '/ssd/notifications',
           'department-head': '/department-head/dashboard',
           'guard': '/guard/dashboard'
         };
 
         // Store User Data ONLY on success
+        const loginEmail = data.userEmail || formData.email;
         localStorage.setItem('userType', role);
-        localStorage.setItem('userEmail', data.userEmail || formData.email);
+        localStorage.setItem('userEmail', loginEmail);
         localStorage.setItem('userName', data.userName);
         localStorage.setItem('userDisplayName', data.userName);
 
         // Notify App
         window.dispatchEvent(new Event('userDataUpdated'));
-        
+
         setToastMessage(`Welcome, ${data.userName}!`);
 
+        // First login on the default password? Force a password change.
+        let mustChange = false;
+        try {
+          const statusRes = await fetch(`/api/password-status/?email=${encodeURIComponent(loginEmail)}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            mustChange = !!statusData.must_change_password;
+          }
+        } catch (statusErr) {
+          console.error('Password status check failed:', statusErr);
+        }
+
         setTimeout(() => {
-          const targetRoute = dashboardRoutes[role] || '/dashboard';
-          navigate(targetRoute);
+          if (mustChange) {
+            navigate('/reset-password?mode=first');
+          } else {
+            const targetRoute = dashboardRoutes[role] || '/dashboard';
+            navigate(targetRoute);
+          }
         }, 1000);
       } else if (response.status === 401) {
         // Specific requirement for 401

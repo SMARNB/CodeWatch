@@ -120,7 +120,6 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
             size: 14,
             family: "'Open Sans', sans-serif",
           },
-          stepSize: 60,
           padding: 8,
           callback: function (value) {
             return value;
@@ -131,7 +130,6 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
           color: '#E5E7EB',
           width: 2,
         },
-        max: 180,
       },
     },
     interaction: {

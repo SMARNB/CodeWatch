@@ -5,7 +5,7 @@ import NotificationBell from './NotificationBell';
 import UserAvatar from './UserAvatar';
 import AddMemberModal from './AddMemberModal';
 import AddCameraModal from './AddCameraModal';
-import SendReportModal from './SendReportModal';
+import AddVisitorModal from './AddVisitorModal';
 
 // Custom hook for debouncing
 function useDebounce(value, delay) {
@@ -53,7 +53,7 @@ const Navbar = () => {
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showAddCameraModal, setShowAddCameraModal] = useState(false);
-  const [showSendReportModal, setShowSendReportModal] = useState(false);
+  const [showAddVisitor, setShowAddVisitor] = useState(false);
   const [userType, setUserType] = useState('admin');
   const [notifications, setNotifications] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
@@ -158,7 +158,9 @@ const Navbar = () => {
     
     const fetchNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications/');
+        const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
+        const role = encodeURIComponent(localStorage.getItem('userType') || '');
+        const response = await fetch(`/api/notifications/?user=${userKey}&role=${role}`);
         if (response.ok) {
           const data = await response.json();
           setNotifications(data);
@@ -186,24 +188,7 @@ const Navbar = () => {
   const handleLinkClick = (linkName, e) => {
     setIsMobileMenuOpen(false);
     
-    // Prevent navigation for modal links
-    if (linkName === 'Add User') {
-      e?.preventDefault();
-      setShowAddMemberModal(true);
-      return;
-    }
-    
-    if (linkName === 'Add Camera') {
-      e?.preventDefault();
-      setShowAddCameraModal(true);
-      return;
-    }
-    
-    if (linkName === 'Send Report') {
-      e?.preventDefault();
-      setShowSendReportModal(true);
-      return;
-    }
+
     
     // Handle logout
     if (linkName === 'Log out') {
@@ -247,15 +232,13 @@ const Navbar = () => {
   const defaultLinks = [
     { name: 'Dashboard', path: getDashboardPath(), roles: ['admin', 'ssd', 'department-head', 'guard'] },
     { name: 'Notifications', path: `/${currentUserType}/notifications`, roles: ['ssd', 'department-head'] },
-    { name: 'Add User', path: '/add-user', roles: ['admin'] },
-    { name: 'Add Camera', path: '/add-camera', roles: ['admin'] },
+
     { name: 'Manage Cameras', path: '/admin/manage-cameras', roles: ['admin'] },
     { name: 'Manage People', path: '/admin/manage-people', roles: ['admin'] },
     { name: 'Manage Users', path: '/admin/manage-users', roles: ['admin'] },
     { name: 'Manage Violations', path: '/admin/manage-violations', roles: ['admin', 'ssd'] },
     { name: 'Manage Blacklist', path: '/admin/manage-blacklist', roles: ['admin'] },
     { name: 'Generate Analytics', path: '/analytics', roles: ['admin'] },
-    { name: 'Send Report', path: '/send-report', roles: ['admin'] },
     { name: 'Previous Reports', path: '/reports', roles: ['admin', 'ssd', 'department-head'] },
     { name: 'Add Visitor', path: '/guard/add-visitor', roles: ['guard'] },
     { name: 'Active Visitors', path: '/guard/visitors', roles: ['guard'] },
@@ -279,6 +262,11 @@ const Navbar = () => {
             />
           </div>
 
+          {/* Center Section: Title */}
+          <div className="flex-1 flex justify-center">
+            <h1 className="text-2xl font-bold text-[#3f4299] text-center" style={{ fontFamily: "'Open Sans', sans-serif" }}>Code Watch</h1>
+          </div>
+
           {/* Right Section: Navigation Links + NotificationBell + UserAvatar + Username (Grouped) */}
           <div className="flex items-center gap-8 mr-[5%] flex-shrink-0">
 
@@ -286,16 +274,13 @@ const Navbar = () => {
             {(currentUserType === 'admin' || currentUserType === 'ssd') && (
               <div className="relative" ref={searchRef}>
                 <div className="relative flex items-center">
-                  <svg className="absolute left-3 w-4 h-4 text-gray-400 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                  </svg>
                   <input
                     type="text"
                     placeholder="Search people, cameras..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => { if(searchResults) setIsSearchOpen(true); }}
-                    className="w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                    className="w-64 pl-4 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
                   />
                 </div>
                 
@@ -343,13 +328,17 @@ const Navbar = () => {
             <div className="hidden md:flex items-center gap-8">
               {navigationLinks.map((link, index) => {
                 // For modal links, use a button instead of NavLink
-                if (link.name === 'Add User' || link.name === 'Add Camera' || link.name === 'Send Report') {
+                if (link.name === 'Send Report' || link.name === 'Add Visitor') {
                   return (
                     <button
                       key={index}
                       onClick={(e) => {
                         e.preventDefault();
-                        handleLinkClick(link.name, e);
+                        if (link.name === 'Add Visitor') {
+                          setShowAddVisitor(true);
+                        } else {
+                          handleLinkClick(link.name, e);
+                        }
                       }}
                       className="relative px-3 py-2 text-base font-normal transition-colors duration-200 text-black hover:text-[#3f4299]"
                       style={{ fontFamily: "'Open Sans', sans-serif", fontVariationSettings: "'wdth' 100" }}
@@ -370,40 +359,32 @@ const Navbar = () => {
               })}
             </div>
 
-            {/* Notification Bell Component */}
-            <NotificationBell 
-              notifications={notifications}
-              onNotificationClick={async (notification) => {
-                if (!notification.is_read) {
-                  try {
-                    await fetch(`/api/notifications/read/${notification.id}/`, { method: 'POST' });
-                    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
-                  } catch (err) {
-                    console.error('Failed to mark read', err);
+            {/* Notification Bell Component (Hidden for Guard) */}
+            {currentUserType !== 'guard' && (
+              <NotificationBell 
+                notifications={notifications}
+                onNotificationClick={async (notification) => {
+                  if (!notification.is_read) {
+                    try {
+                      const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
+                      await fetch(`/api/notifications/read/${notification.id}/?user=${userKey}`, { method: 'POST' });
+                      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
+                    } catch (err) {
+                      console.error('Failed to mark read', err);
+                    }
                   }
-                }
-                // Determine the correct notifications route based on userType
-                navigate(`/notification-details?id=${notification.id}`);
-                // Open notifications page in a new tab
-                //window.open(notificationsRoute, '_blank');
-              }}
-            />
+                  navigate(`/notification-details?id=${notification.id}`);
+                }}
+              />
+            )}
 
-            {/* User Avatar Component */}
+            {/* User Avatar Component (dropdown disabled — static badge only) */}
             <UserAvatar 
               username={userDisplayName || username}
               avatarUrl={userAvatarUrl}
               size="md"
-              showDropdown={true}
+              showDropdown={false}
               onLogout={handleLogout}
-              onProfileClick={() => {
-                // Navigate to profile page if needed
-                console.log('Profile clicked');
-              }}
-              onSettingsClick={() => {
-                // Navigate to settings page if needed
-                console.log('Settings clicked');
-              }}
             />
 
             {/* Username Display - Show email address or display name */}
@@ -413,6 +394,16 @@ const Navbar = () => {
             >
               {username || userDisplayName || 'username'}
             </span>
+
+            {/* Change Password link */}
+            <button
+              onClick={() => navigate('/reset-password?mode=change')}
+              className="hidden sm:block text-sm font-medium text-[#3f4299] hover:underline whitespace-nowrap"
+              style={{ fontFamily: "'Open Sans', sans-serif" }}
+              title="Change your password"
+            >
+              Change Password
+            </button>
 
             {/* Mobile Menu Button */}
             <button
@@ -437,13 +428,18 @@ const Navbar = () => {
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
               {navigationLinks.map((link, index) => {
                 // For modal links, use a button instead of NavLink
-                if (link.name === 'Add User' || link.name === 'Add Camera' || link.name === 'Send Report') {
+                if (link.name === 'Send Report' || link.name === 'Add Visitor') {
                   return (
                     <button
                       key={index}
                       onClick={(e) => {
                         e.preventDefault();
-                        handleLinkClick(link.name, e);
+                        if (link.name === 'Add Visitor') {
+                          setIsMobileMenuOpen(false);
+                          setShowAddVisitor(true);
+                        } else {
+                          handleLinkClick(link.name, e);
+                        }
                       }}
                       className="block w-full text-left px-3 py-2 text-base font-medium rounded-md transition-colors duration-200 text-gray-700 hover:text-[#3f4299] hover:bg-gray-50"
                     >
@@ -480,8 +476,8 @@ const Navbar = () => {
       {showAddCameraModal && (
         <AddCameraModal onClose={() => setShowAddCameraModal(false)} />
       )}
-      {showSendReportModal && (
-        <SendReportModal onClose={() => setShowSendReportModal(false)} />
+      {showAddVisitor && (
+        <AddVisitorModal onClose={() => setShowAddVisitor(false)} />
       )}
 
       {/* Toast */}

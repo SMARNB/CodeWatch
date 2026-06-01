@@ -71,14 +71,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
 
   // Format violation count with European formatting
   const formatViolationCount = (count) => {
-    if (typeof count === 'number') {
-      // Use European format: 5.000,00
-      return count.toLocaleString('de-DE', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    }
-    return count;
+    return typeof count === 'number' ? count.toLocaleString() : count;
   };
 
   // Chart options
@@ -122,7 +115,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
       },
       y: {
         // --- Y-Axis Configuration (Native) ---
-        beginAtZero: false,
+        beginAtZero: true,
         grid: {
           // Show horizontal grid lines to align with the data points
           display: true, 
@@ -135,8 +128,6 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
             size: 12,
             family: "'Inter', sans-serif",
           },
-          // Force ticks to appear every 20 units to match the image
-          stepSize: 20, 
           callback: function (value) {
             return value;
           },
@@ -144,8 +135,6 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
         border: {
           display: true, // Show the vertical line for the Y-axis
         },
-        min: -60,
-        max: 60,
       },
     },
     interaction: {
@@ -179,7 +168,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
 
   return (
     // Applied custom padding-left: pl-10 (10px)
-    <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 **pl-10** box-border hover:shadow-md transition-shadow duration-200 ease-in-out">
+    <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 pl-10 box-border hover:shadow-md transition-shadow duration-200 ease-in-out">
       {/* Header */}
       <div className="flex items-center justify-between pb-2 mb-4">
         <div className="w-24">
@@ -212,17 +201,12 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
         </span>
       </div>
 
-      {/* Sub Content */}
-      <div className="flex items-center gap-2.5 pb-4">
-        <p className="text-base font-normal text-black leading-normal whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
-          {data.subViolations || 50} Violations
-        </p>
-      </div>
+      {/* Sub Content Removed */}
 
       {/* Chart Container */}
       {/* Increased height from min-h-[200px] to min-h-[220px] (20px increase) */}
-      <div className="flex flex-col gap-2.5 flex-grow **min-h-[300px]**">
-        <div className="flex-grow min-h-[150px]">
+      <div className="flex flex-col gap-2.5">
+        <div className="h-[220px]">
           <div className="w-full h-full">
             <Line data={chartData} options={chartOptions} />
           </div>
@@ -230,7 +214,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
 
         {/* Legend */}
         <div className="flex flex-col gap-2.5 pt-6">
-          <div className="flex gap-2 items-end pb-2 pr-2.5">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 items-center pb-2 pr-2.5">
             {data.datasets?.map((dataset, index) => {
               const colors = ['#7987FF', '#E697FF', '#FFA5CB'];
               const color = dataset.borderColor || colors[index] || '#7987FF';

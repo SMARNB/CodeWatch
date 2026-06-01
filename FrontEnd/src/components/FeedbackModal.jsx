@@ -6,10 +6,8 @@ const FeedbackModal = ({ onClose }) => {
     violationId: '',
     userType: '',
     userId: '',
-    thoughts: '',
-    sendRequest: false
+    thoughts: ''
   });
-
   const [errors, setErrors] = useState({});
 
   // Handle ESC key to close modal
@@ -19,14 +17,8 @@ const FeedbackModal = ({ onClose }) => {
         onClose();
       }
     };
-
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
-
-    // Add event listener for ESC key
     document.addEventListener('keydown', handleEscape);
-
-    // Cleanup
     return () => {
       document.body.style.overflow = 'unset';
       document.removeEventListener('keydown', handleEscape);
@@ -39,7 +31,6 @@ const FeedbackModal = ({ onClose }) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -49,44 +40,49 @@ const FeedbackModal = ({ onClose }) => {
   };
 
   const handleDone = () => {
-    // Validate form if needed
     const newErrors = {};
     if (!formData.violationId) {
-      newErrors.violationId = 'Please select a Violation ID';
+      newErrors.violationId = 'Please enter a Violation ID';
     }
     if (!formData.userType) {
-      newErrors.userType = 'Please select a User Type';
+      newErrors.userType = 'Please select a Person Type';
     }
     if (!formData.userId) {
-      newErrors.userId = 'Please enter a User-ID';
+      newErrors.userId = 'Please enter a Person ID';
     }
     if (!formData.thoughts.trim()) {
       newErrors.thoughts = 'Please share your thoughts';
     }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-
-    // Handle form submission
-    console.log('Feedback form data:', formData);
 
     fetch('/api/feedback/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify({
+        violation_id: formData.violationId,
+        userType: formData.userType,
+        userId: formData.userId,
+        thoughts: formData.thoughts
+      }),
     })
-      .then(response => {
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
         if (response.ok) {
           alert("Feedback submitted successfully");
           if (onClose) {
             onClose();
           }
         } else {
-          alert("Failed to submit feedback");
+          if (result.message && /violation/i.test(result.message)) {
+            setErrors(prev => ({ ...prev, violationId: result.message }));
+          } else {
+            alert(result.message || "Failed to submit feedback");
+          }
         }
       })
       .catch(error => {
@@ -96,27 +92,16 @@ const FeedbackModal = ({ onClose }) => {
   };
 
   const handleBackdropClick = (e) => {
-    // Close modal when clicking on backdrop
     if (e.target === e.currentTarget && onClose) {
       onClose();
     }
   };
-
-  // Mock violation IDs - replace with actual data source
-  const violationIds = [
-    'VIOL-001',
-    'VIOL-002',
-    'VIOL-003',
-    'VIOL-004',
-    'VIOL-005'
-  ];
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[0.3px] bg-white/10"
       onClick={handleBackdropClick}
     >
-      {/* Modal Content */}
       <div
         className="relative bg-white rounded-[8px] shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -124,7 +109,6 @@ const FeedbackModal = ({ onClose }) => {
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
         }}
       >
-        {/* Header with Close Button */}
         <div className="bg-white flex justify-between items-center relative" style={{ padding: '10px' }}>
           <div className="flex-1"></div>
           <h2 className="text-xl font-semibold text-[#3f4299] flex-1 text-center" style={{ fontFamily: "'Open Sans', sans-serif" }}>
@@ -137,49 +121,32 @@ const FeedbackModal = ({ onClose }) => {
               aria-label="Close"
               title="Close"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Modal Body */}
         <div className="space-y-5 overflow-y-auto flex-1" style={{ padding: '10px' }}>
-          {/* Violation ID Dropdown */}
+          {/* Violation ID Input (numeric, confirmed by the backend) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Violation ID
             </label>
-            <div className="relative">
-              <select
-                name="violationId"
-                value={formData.violationId}
-                onChange={handleInputChange}
-                className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors ${errors.violationId
-                    ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                    : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
-                  }`}
-                style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
-              >
-                <option value="">Select Violation ID</option>
-                {violationIds.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="number"
+              name="violationId"
+              value={formData.violationId}
+              onChange={handleInputChange}
+              placeholder="Enter Violation ID (e.g. 14245)"
+              min="1"
+              className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.violationId
+                  ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
+                  : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
+                }`}
+              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
+            />
             {errors.violationId && (
               <p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {errors.violationId}
@@ -187,10 +154,10 @@ const FeedbackModal = ({ onClose }) => {
             )}
           </div>
 
-          {/* User Type Dropdown */}
+          {/* Person Type Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              User Type
+              Person Type
             </label>
             <div className="relative">
               <select
@@ -203,9 +170,11 @@ const FeedbackModal = ({ onClose }) => {
                   }`}
                 style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
               >
-                <option value="">Select User Type</option>
+                <option value="">Select Person Type</option>
                 <option value="employee">Employee</option>
                 <option value="student">Student</option>
+                <option value="visitor">Visitor</option>
+                <option value="unknown">Unknown</option>
               </select>
             </div>
             {errors.userType && (
@@ -215,17 +184,17 @@ const FeedbackModal = ({ onClose }) => {
             )}
           </div>
 
-          {/* User-ID Input */}
+          {/* Person ID Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              User-ID
+              Person ID
             </label>
             <input
               type="text"
               name="userId"
               value={formData.userId}
               onChange={handleInputChange}
-              placeholder="Enter User-ID"
+              placeholder="Enter Person ID"
               className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.userId
                   ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
                   : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
@@ -262,28 +231,8 @@ const FeedbackModal = ({ onClose }) => {
               </p>
             )}
           </div>
-
-          {/* Send Request Checkbox */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="sendRequest"
-              id="sendRequest"
-              checked={formData.sendRequest}
-              onChange={handleInputChange}
-              className="w-4 h-4 text-[#3f4299] border-[#bab6b6] rounded focus:ring-[#3f4299] focus:ring-2 cursor-pointer"
-            />
-            <label
-              htmlFor="sendRequest"
-              className="ml-2 text-sm font-medium text-gray-700 cursor-pointer"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-            >
-              Send Request
-            </label>
-          </div>
         </div>
 
-        {/* Modal Footer */}
         <div className="bg-white flex justify-end" style={{ padding: '10px' }}>
           <Button
             variant="primary"

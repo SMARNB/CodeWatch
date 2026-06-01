@@ -52,22 +52,47 @@ const ManageUsersPage = () => {
     }
   };
 
-  const handleToggleActive = async (userObj) => {
-    const action = userObj.is_active ? 'Deactivate' : 'Activate';
-    if (window.confirm(`Are you sure you want to ${action} ${userObj.username}?`)) {
+  const handleDeleteUser = async (userObj) => {
+    // Block deleting the account you're currently logged in as
+    const myEmail = (localStorage.getItem('userEmail') || '').toLowerCase();
+    const myName = (localStorage.getItem('userName') || localStorage.getItem('userDisplayName') || '').toLowerCase();
+    const isSelf =
+      (userObj.email && userObj.email.toLowerCase() === myEmail) ||
+      (userObj.username && userObj.username.toLowerCase() === myName);
+    if (isSelf) {
+      alert("You can't delete the account you're currently logged in as.");
+      return;
+    }
+
+    if (window.confirm(`Permanently delete "${userObj.username}"? This cannot be undone.`)) {
       try {
-        const response = await fetch(`/api/users/${userObj.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_active: !userObj.is_active })
-        });
+        const response = await fetch(`/api/users/${userObj.id}/`, { method: 'DELETE' });
         if (response.ok) {
           fetchUsers();
         } else {
-          alert(`Failed to ${action.toLowerCase()} user.`);
+          const data = await response.json().catch(() => ({}));
+          alert(data.message || 'Failed to delete user.');
         }
       } catch (err) {
         console.error(err);
+        alert('Failed to delete user.');
+      }
+    }
+  };
+
+  const handleResetPassword = async (userObj) => {
+    if (window.confirm(`Reset ${userObj.username}'s password to the default (password123)?`)) {
+      try {
+        const response = await fetch(`/api/users/${userObj.id}/reset-password/`, { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+          alert(data.message || 'Password reset to the default.');
+        } else {
+          alert(data.message || 'Failed to reset password.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to reset password.');
       }
     }
   };
@@ -123,7 +148,6 @@ const ManageUsersPage = () => {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Last Login</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>
@@ -147,21 +171,26 @@ const ManageUsersPage = () => {
                               {u.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
-                          </td>
                           <td className="px-4 py-3">
-                            <button 
-                              onClick={() => handleToggleActive(u)} 
-                              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${u.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
-                            >
-                              {u.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleResetPassword(u)}
+                                className="px-3 py-1 text-xs font-medium rounded transition-colors text-[#3f4299] hover:bg-blue-50"
+                              >
+                                Reset Password
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u)}
+                                className="px-3 py-1 text-xs font-medium rounded transition-colors text-red-600 hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {users.length === 0 && (
-                        <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-500">No users found.</td></tr>
+                        <tr><td colSpan="5" className="px-4 py-8 text-center text-gray-500">No users found.</td></tr>
                       )}
                     </tbody>
                   </table>

@@ -113,6 +113,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=200)
     message = models.TextField()
     notif_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='system')
+    target_role = models.CharField(max_length=50, null=True, blank=True)
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
@@ -140,6 +141,7 @@ class Violation(models.Model):
 
 class Feedback(models.Model):
     violation = models.ForeignKey(Violation, on_delete=models.CASCADE, null=True, blank=True)
+    violation_log = models.ForeignKey('ViolationLog', on_delete=models.SET_NULL, null=True, blank=True, related_name='feedbacks')
     user_type = models.CharField(max_length=50)
     user_id = models.CharField(max_length=50)
     thoughts = models.TextField()
@@ -163,6 +165,7 @@ class UserProfile(models.Model):
         ('guard', 'Guard')
     ])
     face_embedding = models.TextField(blank=True, null=True, validators=[validate_embedding_length])
+    must_change_password = models.BooleanField(default=False)
 
     def get_embedding_as_vector(self):
         if not self.face_embedding:
@@ -218,3 +221,14 @@ class VisitorLog(models.Model):
 
     def __str__(self):
         return f"Visit: {self.person.name} to {self.host_name}"
+
+class NotificationState(models.Model):
+    """ Per-user read/cleared state for a notification, so 'viewed' and 'cleared'
+        are isolated per user instead of global. user_key is the user's email. """
+    user_key = models.CharField(max_length=255)
+    notification = models.ForeignKey('Notification', on_delete=models.CASCADE, related_name='user_states')
+    is_read = models.BooleanField(default=False)
+    is_cleared = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user_key', 'notification')

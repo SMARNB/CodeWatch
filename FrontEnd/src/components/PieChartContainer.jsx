@@ -83,7 +83,7 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
     return (
       <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 box-border">
         <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
-          Predestine Detection per Anum
+          People by Category
         </div>
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 mt-12">
           <div className="w-12 h-12 border-4 border-gray-200 border-t-[#3f4299] rounded-full animate-spin"></div>
@@ -100,7 +100,7 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
     <div className="relative w-full h-full flex flex-col bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out min-h-[400px]">
       {/* Title */}
       <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
-        Predestine Detection per Anum
+        People by Category
       </div>
 
       {/* Chart Container */}

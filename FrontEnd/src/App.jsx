@@ -6,7 +6,7 @@ import './App.css';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import PasswordResetPage from './pages/PasswordResetPage';
-import SignUpPage from './pages/SignUp';
+
 import NotificationsPage from './pages/NotificationsPage';
 import DashboardPage from './pages/DashboardPage';
 import NotificationDetailsPage from './pages/NotificationDetailsPage';
@@ -22,7 +22,7 @@ import LiveTrackPage from './pages/LiveTrackPage';
 import GuardDashboardPage from './pages/GuardDashboardPage';
 import AddVisitorPage from './pages/AddVisitorPage';
 import VisitorListPage from './pages/VisitorListPage';
-
+import GuardLayout from './components/GuardLayout';
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -96,21 +96,21 @@ const AddCameraPage = () => (
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole }) => {
   const userType = localStorage.getItem('userType');
-  
+
   if (!userType) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (requiredRole && userType !== requiredRole) {
     const roleRoutes = {
       'admin': '/admin/dashboard',
-      'ssd': '/ssd/dashboard',
+      'ssd': '/ssd/notifications',
       'department-head': '/department-head/dashboard',
       'guard': '/guard/dashboard'
     };
     return <Navigate to={roleRoutes[userType] || '/login'} replace />;
   }
-  
+
   return children;
 };
 
@@ -125,16 +125,17 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<PasswordResetPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
+
             <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
             <Route path="/admin/notifications" element={<ProtectedRoute requiredRole="admin"><NotificationsPage userType="admin" /></ProtectedRoute>} />
-            <Route path="/ssd/dashboard" element={<ProtectedRoute requiredRole="ssd"><DashboardPage /></ProtectedRoute>} />
             <Route path="/ssd/notifications" element={<ProtectedRoute requiredRole="ssd"><NotificationsPage userType="ssd" /></ProtectedRoute>} />
             <Route path="/department-head/dashboard" element={<ProtectedRoute requiredRole="department-head"><DashboardPage /></ProtectedRoute>} />
             <Route path="/department-head/notifications" element={<ProtectedRoute requiredRole="department-head"><NotificationsPage userType="department-head" /></ProtectedRoute>} />
-            <Route path="/guard/dashboard" element={<ProtectedRoute requiredRole="guard"><GuardDashboardPage /></ProtectedRoute>} />
-            <Route path="/guard/add-visitor" element={<ProtectedRoute requiredRole="guard"><AddVisitorPage /></ProtectedRoute>} />
-            <Route path="/guard/visitors" element={<ProtectedRoute requiredRole="guard"><VisitorListPage /></ProtectedRoute>} />
+            <Route element={<ProtectedRoute requiredRole="guard"><GuardLayout /></ProtectedRoute>}>
+              <Route path="/guard/dashboard" element={<GuardDashboardPage />} />
+              <Route path="/guard/add-visitor" element={<AddVisitorPage />} />
+              <Route path="/guard/visitors" element={<VisitorListPage />} />
+            </Route>
             <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
             <Route path="/notification-details" element={<ProtectedRoute><NotificationDetailsPage /></ProtectedRoute>} />
             <Route path="/add-camera" element={<ProtectedRoute><AddCameraPage /></ProtectedRoute>} />

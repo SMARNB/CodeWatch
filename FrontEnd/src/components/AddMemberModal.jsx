@@ -7,6 +7,7 @@ const AddMemberModal = ({ onClose }) => {
     email: '',
     password: '',
     role: '',
+    loginRole: '',
     employeeId: '',
     department: '',
     phoneNumber: '',
@@ -81,40 +82,24 @@ const AddMemberModal = ({ onClose }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === 'role') {
-      // When role changes, generate new ID and email
-      const newRole = value;
-      const newEmployeeId = generateEmployeeId(newRole);
-      const newEmail = generateEmailFromId(newEmployeeId);
-
+    if (name === 'employeeId') {
       setFormData(prev => ({
         ...prev,
-        [name]: value,
-        employeeId: newEmployeeId,
-        email: newEmail
+        employeeId: value,
+        email: prev.hasSoftwareAccess ? generateEmailFromId(value) : ''
       }));
-    } else if (name === 'employeeId') {
-      // When ID changes manually, update email
-      const newEmail = generateEmailFromId(value);
+    } else if (name === 'role') {
+      const isEmployee = value === 'employee';
       setFormData(prev => ({
         ...prev,
-        [name]: value,
-        email: newEmail
+        role: value,
+        ...(isEmployee ? {} : { hasSoftwareAccess: false, loginRole: '', email: '', password: '' })
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
-
-    // Clear error for this field when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -268,25 +253,13 @@ const AddMemberModal = ({ onClose }) => {
   const handleSubmit = async () => {
     // Validate form
     const newErrors = {};
-    if (!formData.name.trim()) {
-      newErrors.name = 'Please enter a name';
-    }
+    if (!formData.name.trim()) newErrors.name = 'Please enter a name';
+    if (!formData.role) newErrors.role = 'Please select a user type';
+    if (!formData.employeeId.trim()) newErrors.employeeId = 'Please enter an ID';
+    if (!formData.department.trim()) newErrors.department = 'Please select a department';
     if (formData.hasSoftwareAccess) {
-      if (!formData.role) {
-        newErrors.role = 'Please assign a role';
-      }
-      if (!formData.email.trim()) {
-        newErrors.email = 'Email is required';
-      }
-      if (!formData.password?.trim()) {
-        newErrors.password = 'Password is required';
-      }
-    }
-    if (!formData.employeeId.trim()) {
-      newErrors.employeeId = 'Please enter an Employee ID';
-    }
-    if (!formData.department.trim()) {
-      newErrors.department = 'Please enter a department';
+      if (!formData.loginRole) newErrors.loginRole = 'Please assign a login role';
+      if (!formData.email.trim()) newErrors.email = 'Email is required';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -302,12 +275,11 @@ const AddMemberModal = ({ onClose }) => {
     submitData.append('name', formData.name);
     submitData.append('email', formData.email);
     submitData.append('role', formData.role);
+    submitData.append('login_role', formData.loginRole);
     submitData.append('employee_id', formData.employeeId);
     submitData.append('department', formData.department);
     submitData.append('phone', formData.phoneNumber || '');
-    if (formData.hasSoftwareAccess) {
-      submitData.append('password', formData.password || 'password123'); // Send password or fallback
-    }
+    // Password is assigned automatically by the backend (default: password123)
     if (formData.profilePicture) {
       submitData.append('profile_picture', formData.profilePicture);
     }
@@ -365,7 +337,8 @@ const AddMemberModal = ({ onClose }) => {
     }
   };
 
-  const roles = ['Admin', 'SSD', 'Department Head', 'Guard'];
+  const userTypes = ['Student', 'Employee', 'Visitor'];
+  const loginRoles = ['Admin', 'SSD', 'Department Head', 'Guard'];
 
   return (
     <div
@@ -419,26 +392,34 @@ const AddMemberModal = ({ onClose }) => {
               <label className="text-sm font-medium text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 Grant Software Access
               </label>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
+              <label className={`relative inline-flex items-center ${formData.role === 'employee' ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
                   checked={formData.hasSoftwareAccess}
+                  disabled={formData.role !== 'employee'}
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setFormData(prev => ({
                       ...prev,
                       hasSoftwareAccess: checked,
-                      ...(checked ? {} : { role: '', email: '', password: '' })
+                      loginRole: '',
+                      password: '',
+                      email: checked ? generateEmailFromId(prev.employeeId) : ''
                     }));
                   }}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3f4299]"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3f4299] peer-disabled:opacity-40 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
             <p className="text-xs text-gray-500 mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Everyone is tracked on camera. Turn this on only if the person also needs a login to the software.
             </p>
+            {formData.role !== 'employee' && (
+              <p className="text-xs text-[#3f4299] mt-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                Available only for the Employee user type.
+              </p>
+            )}
           </div>
 
           {/* Profile Picture Upload */}
@@ -515,6 +496,28 @@ const AddMemberModal = ({ onClose }) => {
             )}
           </div>
 
+          {/* User Type Dropdown (always shown) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+              User Type
+            </label>
+            <div className="relative">
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors ${errors.role ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'}`}
+                style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
+              >
+                <option value="">Select user type</option>
+                {userTypes.map((t) => (
+                  <option key={t} value={t.toLowerCase()}>{t}</option>
+                ))}
+              </select>
+            </div>
+            {errors.role && (<p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{errors.role}</p>)}
+          </div>
+
           {/* Email Input (Auto-generated, read-only) */}
           {formData.hasSoftwareAccess && (
           <div>
@@ -537,56 +540,42 @@ const AddMemberModal = ({ onClose }) => {
           </div>
           )}
 
-          {/* Assign role Dropdown */}
+          {/* Login Role Dropdown (only with software access) */}
           {formData.hasSoftwareAccess && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              Assign role
+              Login Role
             </label>
             <div className="relative">
               <select
-                name="role"
-                value={formData.role}
+                name="loginRole"
+                value={formData.loginRole}
                 onChange={handleInputChange}
-                className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors ${errors.role
-                  ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                  : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
-                  }`}
+                className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors ${errors.loginRole ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'}`}
                 style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
               >
-                <option value="">Select role</option>
-                {roles.map((role) => {
-                  // Map role names to consistent values
-                  const roleValue = role === 'Department Head'
-                    ? 'department-head'
-                    : role.toLowerCase();
-                  return (
-                    <option key={role} value={roleValue}>
-                      {role}
-                    </option>
-                  );
+                <option value="">Select login role</option>
+                {loginRoles.map((role) => {
+                  const roleValue = role === 'Department Head' ? 'department-head' : role.toLowerCase();
+                  return (<option key={role} value={roleValue}>{role}</option>);
                 })}
               </select>
             </div>
-            {errors.role && (
-              <p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                {errors.role}
-              </p>
-            )}
+            {errors.loginRole && (<p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{errors.loginRole}</p>)}
           </div>
           )}
 
           {/* Employee ID Input (Auto-generated based on role, but editable) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              Employee ID {formData.hasSoftwareAccess && <span className="text-gray-500 text-xs">(Auto-generated)</span>}
+              ID
             </label>
             <input
               type="text"
               name="employeeId"
               value={formData.employeeId}
               onChange={handleInputChange}
-              placeholder={formData.hasSoftwareAccess ? "ID will be generated based on role" : "Enter Employee/Student ID manually"}
+              placeholder="Enter ID manually"
               className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.employeeId
                 ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
                 : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
@@ -598,11 +587,6 @@ const AddMemberModal = ({ onClose }) => {
                 {errors.employeeId}
               </p>
             )}
-            {formData.role && (
-              <p className="mt-1 text-xs text-gray-500" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                Format: {getRolePrefix(formData.role)}XXX (e.g., {getRolePrefix(formData.role)}001)
-              </p>
-            )}
           </div>
 
           {/* Department Input */}
@@ -610,18 +594,23 @@ const AddMemberModal = ({ onClose }) => {
             <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               Department
             </label>
-            <input
-              type="text"
-              name="department"
-              value={formData.department}
-              onChange={handleInputChange}
-              placeholder="Enter department"
-              className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.department
-                ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
-                }`}
-              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
-            />
+            <div className="relative">
+              <select
+                name="department"
+                value={formData.department}
+                onChange={handleInputChange}
+                className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors ${errors.department
+                  ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
+                  : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
+                  }`}
+                style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
+              >
+                <option value="" disabled>Select Department</option>
+                {['RSCI', 'Law', 'Engineering', 'Business', 'Arts', 'DPT', 'Pharm-D'].map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
             {errors.department && (
               <p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {errors.department}
@@ -645,41 +634,12 @@ const AddMemberModal = ({ onClose }) => {
             />
           </div>
 
-          {/* Password Input (Auto-generated/Editable) */}
+          {/* Default password notice (the password is assigned by the backend) */}
           {formData.hasSoftwareAccess && (
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                Password
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + "!";
-                  setFormData(prev => ({ ...prev, password: randomPassword }));
-                }}
-                className="text-xs text-[#3f4299] hover:underline"
-              >
-                Generate Random
-              </button>
-            </div>
-            <input
-              type="text"
-              name="password"
-              value={formData.password || ''}
-              onChange={handleInputChange}
-              placeholder="Enter or generate password"
-              className={`w-full h-[48px] border rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] ${errors.password
-                ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                : 'border-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]'
-                }`}
-              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
-            />
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                {errors.password}
-              </p>
-            )}
+          <div className="bg-blue-50 border border-blue-100 rounded-[8px] p-3">
+            <p className="text-xs text-[#3f4299]" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+              This account starts with the default password <span className="font-semibold">password123</span>. The user will be asked to set their own password on first login.
+            </p>
           </div>
           )}
 

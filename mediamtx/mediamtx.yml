@@ -797,16 +797,4 @@ pathDefaults:
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
 paths:
-  cam1:
-    source: publisher
-    runOnInit: ffmpeg -re -stream_loop -1 -i "C:/Users/alira/OneDrive/Documents/FYP/BackEnd/videos/1.mp4" -c copy -f rtsp rtsp://localhost:8554/cam1
-    runOnInitRestart: yes
-  cam2:
-    source: publisher
-    runOnInit: ffmpeg -re -stream_loop -1 -i "C:/Users/alira/OneDrive/Documents/FYP/BackEnd/videos/2.mp4" -c copy -f rtsp rtsp://localhost:8554/cam2
-    runOnInitRestart: yes
-  cam3:
-    source: publisher
-    runOnInit: ffmpeg -re -stream_loop -1 -i "C:/Users/alira/OneDrive/Documents/FYP/BackEnd/videos/1.mp4" -c copy -f rtsp rtsp://localhost:8554/cam3
-    runOnInitRestart: yes
   all_others:

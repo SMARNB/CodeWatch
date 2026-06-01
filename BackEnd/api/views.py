@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 import redis
 import time
+import calendar
+from django.db.models.functions import TruncMonth, TruncDate, Lower
 
 from django.contrib.auth import authenticate
 from rest_framework.decorators import api_view
@@ -82,6 +84,7 @@ def add_member(request):
     try:
         data = request.data
         role = data.get('role')
+        login_role = data.get('login_role')
         email = data.get('email')
         employee_id = data.get('employee_id')
         name = data.get('name')
@@ -93,7 +96,8 @@ def add_member(request):
             email=email,
             role=role or None,
             department=data.get('department'),
-            phone=data.get('phone')
+            phone=data.get('phone'),
+            classification='known'
         )
 
         # Handle Profile Picture if uploaded
@@ -132,29 +136,22 @@ def add_member(request):
         SYSTEM_ROLES = ['admin', 'ssd', 'department-head', 'guard']
         
         has_access_flag = data.get('has_software_access', None)
-        if has_access_flag is None:
-            create_account = role in SYSTEM_ROLES
-        else:
-            create_account = str(has_access_flag).lower() == 'true' and role in SYSTEM_ROLES
+        create_account = str(data.get('has_software_access', 'false')).lower() == 'true' and (login_role in SYSTEM_ROLES)
 
         if create_account:
             # Create Django User
             # username = email (for consistency with login_view)
-            username = email
-            
-            # Ensure unique username (although email should be unique)
+            if User.objects.filter(email=email).exists():
+                return Response({"status": "error", "message": "A user with this email already exists."}, status=400)
+            username = name or email
             if User.objects.filter(username=username).exists():
-                 return Response({"status": "error", "message": "User with this email already exists."}, status=400)
-            
-            # Create User
+                username = f"{name} ({employee_id})"
             user = User.objects.create_user(
                 username=username,
                 email=email,
-                password=data.get('password', 'password123') # Use provided password or default
+                password=data.get('password') or 'password123'
             )
-            
-            # Create UserProfile
-            profile = UserProfile.objects.create(user=user, role=role)
+            profile = UserProfile.objects.create(user=user, role=login_role, must_change_password=True)
             
             # Copy embedding if it exists (for new requirement)
             if new_person.embedding_data and new_person.embedding_data != "[]":
@@ -167,18 +164,90 @@ def add_member(request):
     except Exception as e:
         print(f"Error adding member: {e}")
         return Response({"status": "error", "message": str(e)}, status=400)
+
+@api_view(['POST'])
+def add_person_photos(request, person_id):
+    """ Adds one or more face photos to a person: an embedding per photo (better
+        recognition), and refreshes the profile picture from the first valid photo. """
+    try:
+        person = TrackedPerson.objects.get(id=person_id)
+    except TrackedPerson.DoesNotExist:
+        return Response({"status": "error", "message": "Person not found"}, status=404)
+
+    files = request.FILES.getlist('photos')
+    if not files:
+        return Response({"status": "error", "message": "No photos provided."}, status=400)
+    if face_app is None:
+        return Response({"status": "error", "message": "Face engine not available on the server."}, status=500)
+
+    # Existing embeddings -> list
+    existing = []
+    if person.embedding_data and person.embedding_data not in ('', '[]'):
+        try:
+            raw = json.loads(person.embedding_data)
+            if raw and isinstance(raw[0], (int, float)):
+                existing = [raw]
+            elif raw:
+                existing = [v for v in raw if isinstance(v, list)]
+        except Exception:
+            existing = []
+
+    added, failed, first_saved = 0, 0, False
+    for f in files:
+        try:
+            file_bytes = np.frombuffer(f.read(), np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            if img is None:
+                failed += 1
+                continue
+            faces = face_app.get(img)
+            if not faces:
+                failed += 1
+                continue
+            faces.sort(key=lambda x: (x.bbox[2]-x.bbox[0]) * (x.bbox[3]-x.bbox[1]), reverse=True)
+            existing.append(faces[0].embedding.tolist())
+            added += 1
+            if not first_saved:
+                f.seek(0)
+                person.profile_picture.save(f"person_{person.id}_{int(time.time())}.jpg", ContentFile(f.read()), save=False)
+                first_saved = True
+        except Exception as e:
+            print(f"add_person_photos error: {e}")
+            failed += 1
+
+    if added == 0:
+        return Response({"status": "error", "message": "No face detected in the photo(s). Use clear, front-facing images."}, status=400)
+
+    person.embedding_data = json.dumps(existing)
+    person.save()
+    return Response({"status": "success", "added": added, "failed": failed, "total_embeddings": len(existing)})
+
 # --- 1. AI SYSTEM ENDPOINTS ---
 
 @api_view(['GET'])
 def get_all_embeddings(request):
-    """ Sends known faces to the AI script. """
+    """ Sends known faces with ALL their embeddings to the AI script.
+        Returns 'embeddings' (list) plus 'embedding' (first one, backward-compat). """
     persons = TrackedPerson.objects.all()
     data = {}
     for p in persons:
         try:
+            if not p.embedding_data or p.embedding_data in ('', '[]'):
+                continue
+            raw = json.loads(p.embedding_data)
+            if not raw:
+                continue
+            # Normalize: support legacy single-vector AND new list-of-vectors
+            if isinstance(raw[0], (int, float)):
+                embeddings = [raw]
+            else:
+                embeddings = [v for v in raw if isinstance(v, list)]
+            if not embeddings:
+                continue
             data[p.id] = {
-                "name": p.name, 
-                "embedding": json.loads(p.embedding_data),
+                "name": p.name,
+                "embedding": embeddings[0],
+                "embeddings": embeddings,
                 "classification": getattr(p, 'classification', 'unknown')
             }
         except:
@@ -327,9 +396,25 @@ def register_unknown(request):
         print(f"Error in register_unknown: {e}")
         return Response({"error": str(e)}, status=500)
 
+DRESS_CODE_KEYWORDS = (
+    'dress', 'shirt', 'uniform', 'attire', 'cloth', 'tie',
+    'jacket', 'coat', 'vest', 'outfit', 'apparel', 'sleeve',
+    'shorts', 'pant', 'trouser', 'shoe', 'sandal', 'cap', 'hat',
+)
+
+def normalize_violation_category(v_type):
+    """ Collapses every dress-code-style label into one 'dress_code' category.
+        Any other violation type keeps its own identity. """
+    t = (v_type or '').strip().lower()
+    if any(k in t for k in DRESS_CODE_KEYWORDS):
+        return 'dress_code'
+    return t
+
+
 @api_view(['POST'])
 def log_violation(request):
-    """ Receives alerts from the AI script. """
+    """ Receives alerts from the AI script. One violation per person, per CATEGORY, per day.
+        All dress-code labels collapse into a single category. """
     person_id = request.data.get('person_id')
     if person_id is None:
         return Response({"status": "skipped", "message": "Violation skipped, person_id is None"})
@@ -338,7 +423,7 @@ def log_violation(request):
     conf = request.data.get('conf', 0.0)
     snapshot = request.data.get('snapshot')
     camera_id = request.data.get('camera_id')
-    
+
     try:
         p = None
         if person_id:
@@ -346,17 +431,30 @@ def log_violation(request):
                 p = TrackedPerson.objects.get(id=person_id)
             except TrackedPerson.DoesNotExist:
                 pass
-                
+
         camera = None
         if camera_id:
             try:
                 camera = Camera.objects.get(camera_id=camera_id)
             except Camera.DoesNotExist:
                 pass
-                
+
+        # --- DEDUP: one violation per person, per category, per day ---
+        # (every dress-code label collapses into a single 'dress_code' category)
+        if p is not None:
+            today = timezone.localdate()
+            new_category = normalize_violation_category(v_type)
+            todays_types = ViolationLog.objects.filter(
+                person=p, timestamp__date=today
+            ).values_list('violation_type', flat=True)
+            existing_categories = {normalize_violation_category(t) for t in todays_types}
+            if new_category in existing_categories:
+                return Response({"status": "skipped", "message": "Already logged this category for this person today."})
+        # --------------------------------------------------------------
+
         # 1. Create Log
         violation_log = ViolationLog.objects.create(person=p, camera=camera, violation_type=v_type, confidence=conf)
-        
+
         # 2. Save Snapshot
         if snapshot:
             try:
@@ -368,15 +466,14 @@ def log_violation(request):
                 violation_log.save()
             except Exception as snap_e:
                 print(f"Error saving snapshot: {snap_e}")
-        
+
         # 3. Link to Notification System
         title = f"Unauthorized Access on {camera.name}" if camera else f"Alert: {v_type}"
         message = f"Person detected at {camera.location if camera else 'Unknown'}. Camera: {camera.camera_id if camera else 'Unknown'}"
-        
-        # Determine type
+
         notif_type = 'security'
         if v_type and 'Dress' in v_type: notif_type = 'system'
-        
+
         Notification.objects.create(
             title=title,
             message=message,
@@ -388,7 +485,7 @@ def log_violation(request):
     except Exception as e:
         print(f"Error logging violation: {e}")
         return Response({"status": "error", "message": str(e)}, status=400)
-        
+
     return Response({"status": "logged"})
 
 # --- 2. DASHBOARD ENDPOINTS ---
@@ -410,35 +507,118 @@ def get_recent_activity(request):
 
 @api_view(['GET'])
 def get_dashboard_stats(request):
-    """ Calculates numbers for Cards and Pie Chart. """
+    """ Real dashboard data: stat cards, people-by-category pie,
+        12-month line, 6-month by-type trend, and 53-week heatmap. """
+    from django.db.models import Count, Q
+    from django.db.models.functions import TruncMonth, TruncDate
+    from django.utils import timezone
+    from datetime import timedelta
+    from collections import defaultdict
+    import calendar
+
+    now = timezone.now()
+
+    # ---- Stat cards (all real) ----
     total_people = TrackedPerson.objects.count()
     total_violations = ViolationLog.objects.count()
     violators = TrackedPerson.objects.filter(violationlog__isnull=False).distinct().count()
-    
-    non_violators = total_people - violators
-    visitors = TrackedPerson.objects.filter(classification='visitor').count()
-    unauthorized = ViolationLog.objects.filter(violation_type__icontains='Unauthorized').count()
-    dresscode = ViolationLog.objects.filter(violation_type__icontains='Dress Code').count()
-    
-    total_sum = non_violators + unauthorized + visitors + violators + dresscode
+    non_violators_stat = total_people - violators
+
+    # ---- Pie: tracked people by category (mutually exclusive) ----
+    blacklisted = TrackedPerson.objects.filter(classification__iexact='blacklisted').count()
+    visitors = TrackedPerson.objects.filter(classification__iexact='visitor').count()
+    unauthorized = TrackedPerson.objects.filter(classification__iexact='unknown').count()
+    remaining = TrackedPerson.objects.exclude(
+        Q(classification__iexact='blacklisted') |
+        Q(classification__iexact='visitor') |
+        Q(classification__iexact='unknown')
+    )
+    dress_ids = set(remaining.filter(
+        Q(classification__icontains='dress') |
+        Q(violationlog__violation_type__icontains='dress')
+    ).values_list('id', flat=True))
+    dresscode = len(dress_ids)
+    pie_non_violators = remaining.count() - dresscode
+
+    pie_labels = ["Non-Violators", "Visitors", "Unauthorized", "Dress-Code", "Blacklisted"]
+    pie_data = [pie_non_violators, visitors, unauthorized, dresscode, blacklisted]
+
+    # ---- Last 12 calendar months, oldest -> newest ----
+    seq = []
+    yy, mm = now.year, now.month
+    for _ in range(12):
+        seq.append((yy, mm))
+        mm -= 1
+        if mm == 0:
+            mm = 12
+            yy -= 1
+    seq.reverse()
+
+    # ---- Line: total violations per month (last 12 months) ----
+    month_map = {}
+    for r in (ViolationLog.objects
+              .annotate(b=TruncMonth('timestamp'))
+              .values('b')
+              .annotate(count=Count('id'))):
+        if r['b']:
+            month_map[(r['b'].year, r['b'].month)] = r['count']
+    line_labels = [calendar.month_abbr[m] for (y, m) in seq]
+    line_data = [month_map.get((y, m), 0) for (y, m) in seq]
+
+    # ---- Trend: violations by TYPE per month (last 6 months) ----
+    vtype_rows = (ViolationLog.objects
+                  .values('violation_type')
+                  .annotate(c=Count('id'))
+                  .order_by('-c'))
+    vtype_labels = [(r['violation_type'] or 'Unknown') for r in vtype_rows]
+    six = seq[-6:]
+    trend_labels = [calendar.month_abbr[m] for (y, m) in six]
+    by_type = defaultdict(dict)
+    for r in (ViolationLog.objects
+              .annotate(b=TruncMonth('timestamp'))
+              .values('b', 'violation_type')
+              .annotate(count=Count('id'))):
+        if r['b']:
+            t = r['violation_type'] or 'Unknown'
+            by_type[t][(r['b'].year, r['b'].month)] = r['count']
+    palette = ['#7987FF', '#E697FF', '#FFA5CB', '#3B82F6', '#10B981', '#F59E0B', '#EF4444']
+    trend_datasets = []
+    for i, t in enumerate(vtype_labels):
+        trend_datasets.append({
+            "label": t,
+            "data": [by_type.get(t, {}).get((y, m), 0) for (y, m) in six],
+            "color": palette[i % len(palette)],
+        })
+
+    # ---- Heatmap: 53-week grid, real daily intensity ----
+    start_day = (now - timedelta(days=371)).date()
+    day_map = {}
+    for r in (ViolationLog.objects
+              .filter(timestamp__date__gte=start_day)
+              .annotate(d=TruncDate('timestamp'))
+              .values('d')
+              .annotate(count=Count('id'))):
+        if r['d']:
+            day_map[r['d']] = r['count']
+    timeline = []
+    for week in range(53):
+        for day in range(7):
+            the_date = start_day + timedelta(days=week * 7 + day)
+            c = day_map.get(the_date, 0)
+            intensity = 0 if c == 0 else 1 if c <= 2 else 2 if c <= 5 else 3
+            timeline.append({"week": week, "day": day, "intensity": intensity})
 
     return Response({
         "stats": {
-            "nonViolators": { "value": non_violators },
-            "violators": { "value": violators },
-            "unauthorized": { "value": total_violations },
-            "victors": { "value": total_people }
+            "nonViolators": {"value": non_violators_stat},
+            "unauthorized": {"value": total_violations},
+            "violators": {"value": violators},
+            "victors": {"value": total_people},
         },
-        "pie_chart": {
-            "labels": ["Non-Violators", "Unauthorized", "Visitors", "Violators", "Dress Code Violations"],
-            "data": [non_violators, unauthorized, visitors, violators, dresscode]
-        },
-        "non_violators": non_violators,
-        "unauthorized": unauthorized,
-        "visitors": visitors, 
-        "violators": violators,
-        "dresscode": dresscode,
-        "total": total_sum
+        "pie_chart": {"labels": pie_labels, "data": pie_data},
+        "line": {"labels": line_labels, "data": line_data},
+        "trend": {"labels": trend_labels, "datasets": trend_datasets, "total": total_violations},
+        "timeline": timeline,
     })
 
 # --- 3. ANALYTICS ENDPOINTS (THIS WAS MISSING!) ---
@@ -558,26 +738,44 @@ def get_users(request):
         })
     return Response(data)
 
-@api_view(['PATCH'])
+@api_view(['PATCH', 'DELETE'])
 def update_user_role(request, user_id):
-    """ Updates a user's role or status. """
+    """ Updates a user's role/status, or permanently deletes the user. """
     try:
         user = User.objects.get(id=user_id)
+
+        # --- DELETE: remove the user (and their linked profile) ---
+        if request.method == 'DELETE':
+            username = user.username
+            try:
+                user.userprofile.delete()
+            except Exception:
+                pass
+            user.delete()
+            return Response({"status": "success", "message": f"User '{username}' deleted"})
+
+        # --- PATCH: update role and/or active status ---
         profile = user.userprofile
-        
+
         if 'role' in request.data:
             profile.role = request.data['role']
             profile.save()
-            
+
         if 'is_active' in request.data:
             user.is_active = request.data['is_active']
             user.save()
-            
+
         return Response({"status": "success", "message": "User updated"})
     except User.DoesNotExist:
         return Response({"status": "error", "message": "User not found"}, status=404)
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=400)
+
+@api_view(['GET'])
+def get_analytics_filters(request):
+    departments = sorted({d for d in TrackedPerson.objects.values_list('department', flat=True) if d})
+    roles = sorted({r for r in TrackedPerson.objects.values_list('role', flat=True) if r})
+    return Response({"departments": departments, "roles": roles})
 
 @api_view(['POST'])
 def get_analytics_data(request):
@@ -596,18 +794,19 @@ def get_analytics_data(request):
         people = people.filter(department__in=filters['department'])
         logs = logs.filter(person__department__in=filters['department'])
 
-    # Filter by User Type (Role)
+    # Filter by Gender (case-insensitive)
+    if filters.get('gender') and len(filters['gender']) > 0:
+        genders = [g.lower() for g in filters['gender']]
+        people = people.annotate(_g=Lower('gender')).filter(_g__in=genders)
+        logs = logs.annotate(_pg=Lower('person__gender')).filter(_pg__in=genders)
+
+    # Filter by User Type / Role (case-insensitive)
     if filters.get('userType') and len(filters['userType']) > 0:
-        role_mapping = {
-            'Students': 'student',
-            'Employees': 'employee',
-            'Visitors': 'visitor',
-            'Contractors': 'contractor',
-            'Faculty': 'faculty'
-        }
-        roles = [role_mapping.get(r, r.lower()) for r in filters['userType']]
-        people = people.filter(role__in=roles) 
-        logs = logs.filter(person__role__in=roles)
+        roles = [r.lower() for r in filters['userType']]
+        people = people.annotate(_r=Lower('role')).filter(_r__in=roles)
+        logs = logs.annotate(_pr=Lower('person__role')).filter(_pr__in=roles)
+
+    logs_history = logs  # dept/role/gender applied, all dates — for the trend charts
 
     # Filter by Date
     if filters.get('startDate'):
@@ -629,12 +828,47 @@ def get_analytics_data(request):
     # "Victors" -> We'll map this to 'Total Tracked' for the demo
     victors = total_people
 
+    today = timezone.localdate()
+
+    # Monthly total violations (last 12 months)
+    monthly_qs = logs_history.annotate(m=TruncMonth('timestamp')).values('m').annotate(c=Count('id'))
+    month_map = {(r['m'].year, r['m'].month): r['c'] for r in monthly_qs if r['m']}
+    buckets = []
+    y, m = today.year, today.month
+    for i in range(11, -1, -1):
+        mm, yy = m - i, y
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+        buckets.append((yy, mm))
+    monthly_violations = [
+        {"month": calendar.month_abbr[mm], "count": month_map.get((yy, mm), 0)}
+        for (yy, mm) in buckets
+    ]
+
+    # Daily violations (last 53 weeks) -> heatmap grid
+    start = today - timedelta(days=370)
+    daily_qs = logs_history.filter(timestamp__date__gte=start).annotate(d=TruncDate('timestamp')).values('d').annotate(c=Count('id'))
+    daily_counts = {r['d'].isoformat(): r['c'] for r in daily_qs if r['d']}
+    timeline = []
+    for week in range(53):
+        for day in range(7):
+            cell_date = start + timedelta(days=week * 7 + day)
+            cnt = daily_counts.get(cell_date.isoformat(), 0)
+            intensity = 0 if cnt == 0 else (1 if cnt < 3 else 2)
+            timeline.append({
+                "week": week, "day": day, "intensity": intensity,
+                "hour": "12:00", "date": cell_date.isoformat(), "count": cnt
+            })
+
     return Response({
         "nonViolators": non_violators,
         "violators": violators_count,
         "unauthorized": unauthorized,
         "visitors": visitors,
-        "victors": victors
+        "victors": victors,
+        "monthlyViolations": monthly_violations,
+        "timelineData": timeline,
     })
 
 @api_view(['POST'])
@@ -788,32 +1022,180 @@ def delete_report(request, report_id):
     
 @api_view(['GET'])
 def get_notifications(request):
-    """ Returns all notifications, latest first. """
-    notifications = Notification.objects.all().order_by('-timestamp')
+    """ Notifications for the requesting user: per-user read/cleared state + role targeting. """
+    from django.db.models import Q
+    from .models import NotificationState
+    user_key = (request.GET.get('user') or '').strip()
+    role = (request.GET.get('role') or '').strip().lower()
+
+    qs = Notification.objects.all().order_by('-timestamp')
+    qs = qs.filter(Q(target_role__isnull=True) | Q(target_role='') | Q(target_role__iexact=role))
+
+    cleared_ids, read_ids = set(), set()
+    if user_key:
+        cleared_ids = set(NotificationState.objects.filter(user_key=user_key, is_cleared=True).values_list('notification_id', flat=True))
+        read_ids = set(NotificationState.objects.filter(user_key=user_key, is_read=True).values_list('notification_id', flat=True))
+
     data = []
-    for n in notifications:
+    for n in qs:
+        if n.id in cleared_ids:
+            continue
+        vid = n.violation_log.id if n.violation_log else None
+        message = f"{n.message} · Violation #{vid}" if vid else n.message
         data.append({
             "id": n.id,
             "title": n.title,
-            "message": n.message,
+            "message": message,
             "type": n.notif_type,
-            "is_read": n.is_read,
-            "time": n.timestamp.strftime("%b %d, %I:%M %p"), # Format: Jan 22, 08:47 PM
+            "is_read": (n.id in read_ids),
+            "time": n.timestamp.strftime("%b %d, %I:%M %p"),
             "person_id": n.person.id if n.person else None,
-            "camera_id": n.camera.camera_id if n.camera else None
+            "camera_id": n.camera.camera_id if n.camera else None,
+            "violation_id": vid
         })
     return Response(data)
 
 @api_view(['POST'])
 def mark_notif_read(request, notif_id):
-    """ Marks a specific notification as read. """
+    """ Marks one notification read for THIS user only. """
+    from .models import NotificationState
+    user_key = (request.query_params.get('user') or request.data.get('user') or '').strip()
+    if not user_key:
+        return Response({"status": "error", "message": "No user provided."}, status=400)
     try:
-        notif = Notification.objects.get(id=notif_id)
-        notif.is_read = True
-        notif.save()
-        return Response({"status": "success"})
+        n = Notification.objects.get(id=notif_id)
     except Notification.DoesNotExist:
-        return Response({"status": "error"}, status=404)
+        return Response({"status": "error", "message": "Notification not found"}, status=404)
+    NotificationState.objects.update_or_create(user_key=user_key, notification=n, defaults={'is_read': True})
+    return Response({"status": "success"})
+
+@api_view(['POST'])
+def mark_all_notifications_read(request):
+    """ Marks all notifications visible to THIS user as read, for this user only. """
+    from django.db.models import Q
+    from .models import NotificationState
+    user_key = (request.query_params.get('user') or request.data.get('user') or '').strip()
+    role = (request.query_params.get('role') or request.data.get('role') or '').strip().lower()
+    if not user_key:
+        return Response({"status": "error", "message": "No user provided."}, status=400)
+    visible = Notification.objects.filter(Q(target_role__isnull=True) | Q(target_role='') | Q(target_role__iexact=role))
+    for n in visible:
+        NotificationState.objects.update_or_create(user_key=user_key, notification=n, defaults={'is_read': True})
+    return Response({"status": "success"})
+
+@api_view(['POST'])
+def clear_notifications(request):
+    """ Per-user clear. mode='read' clears only the ones THIS user has viewed; mode='all'
+        clears everything visible to this user. Nothing is deleted — just hidden for this user. """
+    from django.db.models import Q
+    from .models import NotificationState
+    user_key = (request.query_params.get('user') or request.data.get('user') or '').strip()
+    role = (request.query_params.get('role') or request.data.get('role') or '').strip().lower()
+    mode = (request.query_params.get('mode') or request.data.get('mode') or 'all').lower()
+
+    if not user_key:
+        return Response({"status": "error", "message": "No user provided."}, status=400)
+
+    visible = Notification.objects.filter(Q(target_role__isnull=True) | Q(target_role='') | Q(target_role__iexact=role))
+    if mode == 'read':
+        read_ids = list(NotificationState.objects.filter(user_key=user_key, is_read=True).values_list('notification_id', flat=True))
+        target = visible.filter(id__in=read_ids)
+    else:
+        target = visible
+
+    cleared = 0
+    for n in target:
+        NotificationState.objects.update_or_create(user_key=user_key, notification=n, defaults={'is_cleared': True})
+        cleared += 1
+    return Response({"status": "success", "mode": mode, "cleared": cleared})
+
+@api_view(['POST'])
+def forgot_password(request):
+    """ A user requests a reset. We don't reset here — we notify the admin (admin-only
+        notification), who resets it to the default from Manage Users. """
+    email = (request.data.get('email') or '').strip()
+    if not email:
+        return Response({"status": "error", "message": "Please enter your email."}, status=400)
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response({"status": "error", "message": "No account found with that email."}, status=404)
+    Notification.objects.create(
+        title="Password Reset Requested",
+        message=f"{email} requested a password reset. Reset it to the default from Manage Users.",
+        notif_type='system',
+        target_role='admin'
+    )
+    return Response({"status": "success", "message": "Request sent to the administrator."})
+
+
+@api_view(['POST'])
+def reset_user_password(request, user_id):
+    """ Admin resets a user's password to the default. """
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"status": "error", "message": "User not found"}, status=404)
+    user.set_password('password123')
+    user.save()
+    return Response({"status": "success", "message": f"Password for {user.username} reset to the default (password123)."})
+
+
+@api_view(['GET'])
+def password_status(request):
+    """ Tells the login page whether this account must change its password first. """
+    email = (request.GET.get('email') or '').strip()
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response({"must_change_password": False})
+    profile = getattr(user, 'userprofile', None)
+    return Response({"must_change_password": bool(profile and profile.must_change_password)})
+
+
+@api_view(['POST'])
+def set_initial_password(request):
+    """ First-login password set. Only works for accounts actually flagged for it,
+        so it can't be used to reset arbitrary accounts (no old-password check here). """
+    email = (request.data.get('email') or '').strip()
+    new_password = request.data.get('password') or ''
+    if not email or not new_password:
+        return Response({"status": "error", "message": "Email and new password are required."}, status=400)
+    if len(new_password) < 8:
+        return Response({"status": "error", "message": "Password must be at least 8 characters."}, status=400)
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response({"status": "error", "message": "Account not found."}, status=404)
+    profile = getattr(user, 'userprofile', None)
+    if not profile or not profile.must_change_password:
+        return Response({"status": "error", "message": "This account is not awaiting a first-time password set."}, status=400)
+    user.set_password(new_password)
+    user.save()
+    profile.must_change_password = False
+    profile.save()
+    return Response({"status": "success"})
+
+
+@api_view(['POST'])
+def change_password(request):
+    """ Voluntary change: verifies the current password before setting a new one. """
+    email = (request.data.get('email') or '').strip()
+    old_password = request.data.get('old_password') or ''
+    new_password = request.data.get('new_password') or ''
+    if not email or not old_password or not new_password:
+        return Response({"status": "error", "message": "All fields are required."}, status=400)
+    if len(new_password) < 8:
+        return Response({"status": "error", "message": "New password must be at least 8 characters."}, status=400)
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response({"status": "error", "message": "Account not found."}, status=404)
+    if not user.check_password(old_password):
+        return Response({"status": "error", "message": "Your current password is incorrect."}, status=400)
+    user.set_password(new_password)
+    user.save()
+    profile = getattr(user, 'userprofile', None)
+    if profile and profile.must_change_password:
+        profile.must_change_password = False
+        profile.save()
+    return Response({"status": "success"})
 
 @api_view(['GET'])
 def get_notification_detail(request, pk):
@@ -1120,22 +1502,92 @@ def manage_violations(request, pk=None):
 
 @api_view(['POST'])
 def submit_feedback(request):
+    from .models import Feedback, ViolationLog
     data = request.data
+
+    # Confirm the typed Violation ID actually exists before saving
+    violation_id = data.get('violation_id')
+    vlog = None
+    if violation_id not in (None, ''):
+        try:
+            vlog = ViolationLog.objects.get(id=int(violation_id))
+        except (ViolationLog.DoesNotExist, ValueError, TypeError):
+            return Response({"status": "error", "message": f"No violation found with ID {violation_id}."}, status=404)
+
     feedback = Feedback.objects.create(
         user_type=data.get('userType'),
         user_id=data.get('userId'),
         thoughts=data.get('thoughts'),
         is_request_sent=data.get('sendRequest', False)
     )
-    violation_id = data.get('violation_id')
-    if violation_id:
-        try:
-            violation = Violation.objects.get(id=violation_id)
-            feedback.violation = violation
-            feedback.save()
-        except Violation.DoesNotExist:
-            pass
+    if vlog:
+        feedback.violation_log = vlog
+        feedback.save()
+
     return Response({"status": "success"})
+
+
+@api_view(['POST'])
+def submit_feedback_report(request):
+    """ Posts violation feedback as an Incident Report (shows up in Previous Reports),
+        attaching the violator's most recent snapshot so they're caught in the act. """
+    data = request.data
+    person_id = data.get('person_id')
+    violation_id = data.get('violation_id')
+    thoughts = (data.get('thoughts') or '').strip()
+
+    if not thoughts:
+        return Response({"status": "error", "message": "No feedback text provided."}, status=400)
+
+    person = None
+    if person_id:
+        try:
+            person = TrackedPerson.objects.get(id=person_id)
+        except TrackedPerson.DoesNotExist:
+            person = None
+
+    # Most recent snapshot for this violator
+    snap_log = None
+    if person:
+        snap_log = (ViolationLog.objects
+                    .filter(person=person)
+                    .exclude(snapshot_path='')
+                    .order_by('-timestamp')
+                    .first())
+    if snap_log is None and violation_id:
+        try:
+            snap_log = ViolationLog.objects.get(id=violation_id)
+        except ViolationLog.DoesNotExist:
+            snap_log = None
+
+    snapshot_url = None
+    if snap_log and snap_log.snapshot_path:
+        try:
+            snapshot_url = request.build_absolute_uri(snap_log.snapshot_path.url)
+        except Exception:
+            snapshot_url = None
+
+    person_name = person.name if person else "Unknown Person"
+    analytics = {
+        "snapshots": [snapshot_url] if snapshot_url else [],
+        "violator_details": {
+            "name": person_name,
+            "employee_id": person.employee_id if person else None,
+            "classification": person.classification if person else None,
+        }
+    }
+
+    report = IncidentReport.objects.create(
+        report_type="Violation Feedback",
+        recipients=data.get('userId') or "",
+        subject=f"Violation Feedback: {person_name}",
+        priority="Normal",
+        message=thoughts,
+        related_person_id=person.id if person else None,
+        analytics_json=json.dumps(analytics)
+    )
+
+    return Response({"status": "success", "report_id": report.id})
 
 
 @api_view(['GET', 'POST', 'PATCH', 'DELETE'])
@@ -1204,6 +1656,78 @@ def manage_blacklist(request, pk=None):
             return Response(status=204)
         except Blacklist.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
+
+
+@api_view(['POST'])
+def toggle_blacklist(request):
+    """ Blacklist or un-blacklist a person by person_id, reusing any existing
+        entry so it never errors on a duplicate. """
+    person_id = request.data.get('person_id')
+    try:
+        person = TrackedPerson.objects.get(id=person_id)
+    except TrackedPerson.DoesNotExist:
+        return Response({"status": "error", "message": "Person not found"}, status=404)
+
+    currently = Blacklist.objects.filter(person=person, is_active=True).exists() or person.classification == 'blacklisted'
+
+    if currently:
+        Blacklist.objects.filter(person=person, is_active=True).update(is_active=False)
+        eid = (person.employee_id or '').upper()
+        person.classification = 'unknown' if eid.startswith(('UNK-', 'VIS-')) else 'known'
+        person.save()
+        return Response({"status": "success", "blacklisted": False, "message": f"{person.name} removed from blacklist."})
+
+    entry = Blacklist.objects.filter(person=person).first()
+    if entry:
+        entry.is_active = True
+        entry.reason = request.data.get('reason', 'Manually blacklisted from Admin Panel')
+        entry.blacklist_type = 'manual'
+        entry.save()
+    else:
+        Blacklist.objects.create(
+            person=person,
+            reason=request.data.get('reason', 'Manually blacklisted from Admin Panel'),
+            blacklist_type='manual',
+            violation_threshold=request.data.get('violation_threshold', 0),
+            added_by=request.user if request.user.is_authenticated else None
+        )
+    person.classification = 'blacklisted'
+    person.save()
+    return Response({"status": "success", "blacklisted": True, "message": f"{person.name} added to blacklist."})
+
+
+@api_view(['POST'])
+def set_person_classification(request, person_id):
+    """ Manually set a person's classification from the Manage People page,
+        keeping the blacklist table in sync. """
+    try:
+        person = TrackedPerson.objects.get(id=person_id)
+    except TrackedPerson.DoesNotExist:
+        return Response({"status": "error", "message": "Person not found"}, status=404)
+
+    classification = (request.data.get('classification') or '').lower()
+    if classification not in ['known', 'unknown', 'blacklisted', 'visitor']:
+        return Response({"status": "error", "message": "Invalid classification"}, status=400)
+
+    if classification == 'blacklisted':
+        entry = Blacklist.objects.filter(person=person).first()
+        if entry:
+            entry.is_active = True
+            entry.save()
+        else:
+            Blacklist.objects.create(
+                person=person,
+                reason='Set blacklisted from Manage People',
+                blacklist_type='manual',
+                violation_threshold=0,
+                added_by=request.user if request.user.is_authenticated else None
+            )
+    else:
+        Blacklist.objects.filter(person=person, is_active=True).update(is_active=False)
+
+    person.classification = classification
+    person.save()
+    return Response({"status": "success"})
 
 
 @api_view(['POST'])
@@ -1531,3 +2055,34 @@ def extend_visitor(request, visitor_log_id):
         return Response({"status": "error", "message": "Visitor log not found"}, status=404)
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=400)
+
+@api_view(['POST'])
+def test_camera_stream(request):
+    """ Tries to open a camera stream (RTSP/HTTP URL or webcam index) and read one frame, capped by a timeout. """
+    import threading
+    import cv2
+    url = (request.data.get('stream_url') or '').strip()
+    if not url:
+        return Response({"success": False, "message": "No stream URL provided."})
+    result = {"ok": False}
+    def _probe():
+        cap = None
+        try:
+            src = int(url) if url.isdigit() else url
+            cap = cv2.VideoCapture(src)
+            if cap.isOpened():
+                ret, frame = cap.read()
+                result["ok"] = bool(ret and frame is not None)
+        except Exception:
+            result["ok"] = False
+        finally:
+            if cap is not None:
+                cap.release()
+    t = threading.Thread(target=_probe, daemon=True)
+    t.start()
+    t.join(timeout=8)
+    if t.is_alive():
+        return Response({"success": False, "message": "Timed out — the stream isn't reachable. Is the source publishing?"})
+    if result["ok"]:
+        return Response({"success": True, "message": "Connection successful — video is coming through."})
+    return Response({"success": False, "message": "Reached the address but couldn't read video from it."})

@@ -88,17 +88,25 @@ def load_registry_and_blacklist():
                 data = response.json()
                 new_reg = []
                 for db_id_str, info in data.items():
-                    raw_emb = info['embedding']
-                    emb_array = np.array(raw_emb, dtype=np.float32).flatten()
-                    if emb_array.shape[0] == 512:
+                    raw_list = info.get('embeddings')
+                    if not raw_list:
+                        single = info.get('embedding')
+                        raw_list = [single] if single else []
+                    emb_arrays = []
+                    for raw_emb in raw_list:
+                        arr = np.array(raw_emb, dtype=np.float32).flatten()
+                        if arr.shape[0] == 512:
+                            emb_arrays.append(arr)
+                    if emb_arrays:
                         new_reg.append({
                             "id": int(db_id_str),
                             "name": info['name'],
-                            "embedding": emb_array,
+                            "embeddings": emb_arrays,
                             "classification": info.get('classification', 'unknown')
                         })
                 global_registry = new_reg
-                print(f"✅ Loaded {len(global_registry)} VALID known faces.")
+                total_emb = sum(len(f['embeddings']) for f in new_reg)
+                print(f"✅ Loaded {len(global_registry)} known faces ({total_emb} embeddings).")
         except Exception as e:
             print(f"⚠️ Registry fetch failed: {e}")
 
@@ -165,20 +173,30 @@ def find_match_in_redis(target_emb):
     return None, 0.0, None
 
 def find_match_in_db(target_emb):
-    """Check local DB cache (global_registry) for match."""
+    """Check local DB cache (global_registry); score against each person's BEST embedding."""
     with state_lock:
         if not global_registry:
             return None, 0.0, "Unknown", "unknown"
-        
-        db_matrix = np.array([f['embedding'] for f in global_registry])
+
+        all_rows = []
+        owner = []
+        for idx, f in enumerate(global_registry):
+            for emb in f['embeddings']:
+                all_rows.append(emb)
+                owner.append(idx)
+
+        if not all_rows:
+            return None, 0.0, "Unknown", "unknown"
+
+        db_matrix = np.array(all_rows)
         sims = cosine_similarity(target_emb, db_matrix)
-        best_idx = np.argmax(sims)
-        max_score = sims[best_idx]
-        
+        best_row = int(np.argmax(sims))
+        max_score = float(sims[best_row])
+
         if max_score > PARAMS["similarity_threshold"]:
-            match = global_registry[best_idx]
-            return match['id'], float(max_score), match['name'], match.get('classification', 'unknown')
-            
+            match = global_registry[owner[best_row]]
+            return match['id'], max_score, match['name'], match.get('classification', 'unknown')
+
     return None, 0.0, "Unknown", "unknown"
 
 def numpy_to_base64(img):

@@ -18,11 +18,11 @@ const GuardDashboardPage = () => {
       if (response.ok) {
         const data = await response.json();
         setActiveVisitors(data);
-        
+
         // Calculate stats
         const activeCount = data.length;
         const expectedDepartures = data.filter(v => v.time_remaining_sec > 0 && v.time_remaining_sec <= 3600).length;
-        
+
         setStats(prev => ({ ...prev, activeCount, expectedDepartures }));
       }
     } catch (error) {
@@ -47,19 +47,19 @@ const GuardDashboardPage = () => {
   useEffect(() => {
     fetchActiveVisitors();
     fetchAllVisitors();
-    
+
     const interval = setInterval(() => {
       fetchActiveVisitors();
       setCurrentTime(new Date());
     }, 30000); // refresh every 30 seconds
-    
+
     const timerInterval = setInterval(() => {
-        setCurrentTime(new Date());
+      setCurrentTime(new Date());
     }, 1000);
-    
+
     return () => {
-        clearInterval(interval);
-        clearInterval(timerInterval);
+      clearInterval(interval);
+      clearInterval(timerInterval);
     };
   }, []);
 
@@ -105,63 +105,42 @@ const GuardDashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f2f3ff] p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#3f4299]">Guard Dashboard</h1>
-            <p className="text-gray-600 text-lg font-medium mt-1">{currentTime.toLocaleString()}</p>
+    <div className="font-sans pb-10">
+      <div className="w-full mx-auto" style={{ paddingLeft: '150px', paddingRight: '150px', marginTop: '40px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <h1 className="text-3xl font-bold text-[#3f4299]">Guard Dashboard</h1>
+          <p className="text-gray-600 text-lg font-medium mt-1">{currentTime.toLocaleString()}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ marginBottom: '20px' }}>
+          <div className="w-full">
+            <StatCard
+              title="Active Visitors"
+              value={stats.activeCount}
+              percentageChange={"+0%"}
+            />
           </div>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => navigate('/guard/visitors')}
-              className="px-6 py-2 bg-indigo-50 text-[#3f4299] border border-[#3f4299] rounded-[8px] text-[14px] font-medium hover:bg-[#3f4299] hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:ring-offset-2 shadow-sm"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-            >
-              Visitor List
-            </button>
-            <button 
-              onClick={() => navigate('/guard/add-visitor')}
-              className="px-6 py-2 bg-[#3f4299] text-white border border-[#3f4299] rounded-[8px] text-[14px] font-medium hover:bg-[#2d3170] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:ring-offset-2 shadow-sm flex items-center justify-center gap-2"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-            >
-              <span>+ Quick Add Visitor</span>
-            </button>
+          <div className="w-full">
+            <StatCard
+              title="Checked Out Today"
+              value={stats.checkedOutToday}
+              percentageChange={"+0%"}
+            />
+          </div>
+          <div className="w-full">
+            <StatCard
+              title="Expected Departures (1h)"
+              value={stats.expectedDepartures}
+              percentageChange={"+0%"}
+            />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="scale-[0.9] origin-top-left w-[111%] h-[111%]">
-              <StatCard
-                title="Active Visitors"
-                value={stats.activeCount}
-                percentageChange={"+0%"}
-                miniChartData={[2, 4, 3, 5, 4, 6, stats.activeCount]}
-              />
-            </div>
-            <div className="scale-[0.9] origin-top-left w-[111%] h-[111%]">
-              <StatCard
-                title="Checked Out Today"
-                value={stats.checkedOutToday}
-                percentageChange={"+0%"}
-                miniChartData={[1, 3, 2, 4, 3, 5, stats.checkedOutToday]}
-              />
-            </div>
-            <div className="scale-[0.9] origin-top-left w-[111%] h-[111%]">
-              <StatCard
-                title="Expected Departures (1h)"
-                value={stats.expectedDepartures}
-                percentageChange={"+0%"}
-                miniChartData={[0, 1, 0, 2, 1, 1, stats.expectedDepartures]}
-              />
-            </div>
-        </div>
-
-        <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden mb-8">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-[#3f4299]">Active Visitors</h2>
+        <div className="bg-white rounded-[8px] shadow-sm border border-gray-200 overflow-hidden mb-[10px] p-[10px]">
+          <div className="pb-[10px] border-b border-gray-200 pl-[10px]">
+            <h2 className="text-xl font-bold text-[#3f4299]" style={{ paddingLeft: '10px', }}>Active Visitors</h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pt-[10px]" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -188,21 +167,21 @@ const GuardDashboardPage = () => {
                       <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{visitor.purpose}</td>
                       <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{visitor.host_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{visitor.host_department}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{new Date(visitor.check_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600" style={{ fontFamily: "'Open Sans', sans-serif" }}>{new Date(visitor.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       <td className={`px-4 py-3 text-sm ${getTimerStyle(visitor.time_remaining_sec, visitor.is_overdue)}`} style={{ fontFamily: "'Open Sans', sans-serif" }}>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${visitor.is_overdue ? 'bg-red-100 text-red-800 border-red-200' : visitor.time_remaining_sec < 1800 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-green-100 text-green-800 border-green-200'}`}>
                           {visitor.time_remaining}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleCheckout(visitor.id)}
                           className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded text-xs font-medium transition-colors shadow-sm"
                           style={{ fontFamily: "'Open Sans', sans-serif" }}
                         >
                           Checkout
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleExtend(visitor.id)}
                           className="px-3 py-1 bg-indigo-50 text-[#3f4299] hover:bg-[#3f4299] hover:text-white border border-[#3f4299] rounded text-xs font-medium transition-colors shadow-sm"
                           style={{ fontFamily: "'Open Sans', sans-serif" }}

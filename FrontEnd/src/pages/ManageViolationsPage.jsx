@@ -10,16 +10,16 @@ const ManageViolationsPage = () => {
   const [user, setUser] = useState(null);
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  
+
   const [typeFilter, setTypeFilter] = useState('all');
   const [cameraFilter, setCameraFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  
+
   const [selectedViolations, setSelectedViolations] = useState([]);
 
   const userType = localStorage.getItem('userType') || 'admin';
@@ -94,7 +94,7 @@ const ManageViolationsPage = () => {
   const fetchViolations = async () => {
     try {
       setLoading(true);
-      
+
       const queryParams = new URLSearchParams({
         page,
         page_size: 50,
@@ -103,16 +103,16 @@ const ManageViolationsPage = () => {
         ...(dateFrom && { date_from: dateFrom }),
         ...(dateTo && { date_to: dateTo }),
       });
-      
+
       const response = await fetch(`/api/violations/?${queryParams.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch violations");
 
       const data = await response.json();
-      
+
       setViolations(data.results || []);
       setTotalPages(data.pages || 1);
       setTotalCount(data.total || 0);
-      
+
     } catch (error) {
       console.error('Failed to fetch violations:', error);
     } finally {
@@ -130,9 +130,9 @@ const ManageViolationsPage = () => {
 
   const handleViolationClick = (violation) => {
     if (violation.notification_id) {
-       navigate(`/notification-details?id=${violation.notification_id}`);
+      navigate(`/notification-details?id=${violation.notification_id}`);
     } else {
-       alert("No linked notification for this violation.");
+      alert("No linked notification for this violation.");
     }
   };
 
@@ -179,7 +179,7 @@ const ManageViolationsPage = () => {
   };
 
   const handleBackClick = () => {
-    navigate('/admin/notifications');
+    navigate(-1);
   };
 
   // Helper to safely format date string or object
@@ -293,7 +293,7 @@ const ManageViolationsPage = () => {
                 <option value="CAM-002">CAM-002 (Server Room)</option>
                 <option value="CAM-003">CAM-003 (Hallway A)</option>
               </select>
-              
+
               <div className="flex items-center gap-2">
                 <input
                   type="date"
@@ -387,7 +387,7 @@ const ManageViolationsPage = () => {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{violation.camera_name}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                             {(violation.confidence * 100).toFixed(1)}%
+                            {(violation.confidence * 100).toFixed(1)}%
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {violation.timestamp}
@@ -435,7 +435,7 @@ const ManageViolationsPage = () => {
                   Showing {violations.length} of {totalCount} violations
                 </p>
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     disabled={page === 1}
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     className="px-4 py-2 border rounded text-sm bg-white disabled:opacity-50"
@@ -443,7 +443,7 @@ const ManageViolationsPage = () => {
                     Previous
                   </button>
                   <span className="px-4 py-2 text-sm text-gray-700">Page {page} of {totalPages}</span>
-                  <button 
+                  <button
                     disabled={page === totalPages}
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     className="px-4 py-2 border rounded text-sm bg-white disabled:opacity-50"

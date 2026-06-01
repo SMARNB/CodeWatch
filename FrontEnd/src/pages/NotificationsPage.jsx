@@ -16,18 +16,18 @@ const NotificationsPage = ({ userType: propUserType }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Get userType from prop or localStorage
   const userType = propUserType || localStorage.getItem('userType') || 'admin';
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/notifications/');
+      const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
+      const role = encodeURIComponent(localStorage.getItem('userType') || userType || '');
+      const response = await fetch(`/api/notifications/?user=${userKey}&role=${role}`);
       if (response.ok) {
         const data = await response.json();
         const mappedData = data.map(n => ({
           ...n,
-          // Mapping backend 'type' to your frontend color 'status'
           status: n.type === 'security' ? 'Red' :
             n.type === 'system' ? 'Green' :
               n.type === 'backup' ? 'Blue' : 'Yellow',
@@ -43,26 +43,12 @@ const NotificationsPage = ({ userType: propUserType }) => {
   };
 
   useEffect(() => {
-    // 1. Set User Data
     const userEmail = localStorage.getItem('userEmail') || 'admin@company.com';
     const userDisplayName = localStorage.getItem('userDisplayName') || 'User';
     setUser({ name: userDisplayName, email: userEmail, employeeId: 'ADM001' });
-
-    // 2. Load Notifications from Database
     fetchNotifications();
   }, []);
 
-  // Get dynamic heading based on userType
-  const getPageHeading = () => {
-    const headings = {
-      admin: 'Admin Notifications',
-      ssd: 'SSD Notifications',
-      'department-head': 'Department Head Notifications'
-    };
-    return headings[userType] || 'Notifications';
-  };
-
-  // Filter notifications based on selected filter and search term
   const filteredNotifications = notifications.filter(notification => {
     const matchesFilter = selectedFilter === 'all' ||
       notification.status?.toLowerCase() === selectedFilter.toLowerCase();
@@ -72,72 +58,89 @@ const NotificationsPage = ({ userType: propUserType }) => {
     return matchesFilter && matchesSearch;
   });
 
-  // Navigation handlers
+  const handleClear = async (mode) => {
+    const label = mode === 'read' ? 'all the notifications you have viewed' : 'all notifications';
+    if (!window.confirm(`Clear ${label} from your list? Other users are not affected.`)) return;
+    try {
+      const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
+      const role = encodeURIComponent(localStorage.getItem('userType') || userType || '');
+      const res = await fetch(`/api/notifications/clear/?mode=${mode}&user=${userKey}&role=${role}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+      if (res.ok) {
+        fetchNotifications();
+      } else {
+        alert('Failed to clear notifications.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to clear notifications.');
+    }
+  };
+
   const handleFeedbackClick = () => {
-    // Open feedback modal
     setShowFeedbackModal(true);
   };
 
   const handleLogoutClick = () => {
-    // Clear user data and navigate to login
     localStorage.removeItem('userType');
     localStorage.removeItem('userEmail');
     navigate('/login');
   };
 
   const handleNotificationClick = (notification) => {
-    // Store notification data in sessionStorage for the new tab
     const notificationKey = `notification_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    sessionStorage.setItem(notificationKey, JSON.stringify({
-      notification,
-      userType
-    }));
+    sessionStorage.setItem(notificationKey, JSON.stringify({ notification, userType }));
+    window.open(`/notification-details?id=${notification.id}`, '_blank');
 
-    // Open notification details page in a new tab
-    const url = `/notification-details?id=${notification.id}`;
-    window.open(url, '_blank');
+    if (!notification.is_read) {
+      const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
+      fetch(`/api/notifications/read/${notification.id}/?user=${userKey}`, { method: 'POST' })
+        .then(() => fetchNotifications())
+        .catch((e) => console.error('Failed to mark read', e));
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
-      {/* Background Ellipse */}
       <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
         <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
-
-      {/* Navbar */}
       <div className="relative bg-white shadow-sm border-b border-gray-200 w-full" style={{ height: '100px' }}>
         <div className="w-full px-4 sm:px-6 lg:px-8 h-full">
           <div className="flex justify-between items-center h-full w-full">
-            {/* Logo - Left */}
             <div className="flex items-center" style={{ marginLeft: '20px' }}>
               <Logo size="default" showText={false} />
             </div>
-
-            {/* Code Watch - Center */}
             <div className="flex-1 flex justify-center">
-              <h1 className="text-2xl font-bold text-[#3f4299] text-center">
-                Code Watch
-              </h1>
+              <h1 className="text-2xl font-bold text-[#3f4299] text-center">Code Watch</h1>
             </div>
-
-            {/* Right side - Empty for balance */}
             <div className="w-16"></div>
           </div>
         </div>
       </div>
-
-      {/* Main Content - Full Screen Layout */}
       <div className="relative w-full" style={{ paddingTop: '100px', paddingLeft: '100px' }}>
         <div className="flex w-full">
-          {/* Left Column - Notifications */}
           <div className="flex-1">
-            {/* Notifications Heading */}
-            <h2 className="text-3xl font-bold text-[#3f4299] mb-5" style={{ marginBottom: '50px' }}>
-              Notifications
-            </h2>
-
-            {/* Notifications List with Loading State */}
+            <div className="flex items-center justify-between" style={{ marginBottom: '50px' }}>
+              <h2 className="text-3xl font-bold text-[#3f4299]">Notifications</h2>
+              <div className="flex items-center gap-3" style={{ marginRight: '40px' }}>
+                <button
+                  onClick={() => handleClear('read')}
+                  className="px-3 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-[8px] hover:bg-gray-50 transition-colors"
+                >
+                  Clear Viewed
+                </button>
+                <button
+                  onClick={() => handleClear('all')}
+                  className="px-3 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-[8px] hover:bg-red-50 transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
             {loading ? (
               <div className="flex justify-center py-20">
                 <div className="w-12 h-12 border-4 border-[#3f4299] border-t-transparent rounded-full animate-spin"></div>
@@ -157,53 +160,26 @@ const NotificationsPage = ({ userType: propUserType }) => {
               ))
             )}
           </div>
-
-          {/* Right Column - User Profile Card and Buttons */}
           <div className="w-80 flex-shrink-0" style={{ marginRight: '100px', marginLeft: '100px' }}>
             <div style={{ marginTop: '0px' }}>
               <div style={{ marginBottom: '20px' }}>
                 {user && <UserProfileCard user={user} />}
               </div>
-
-              {/* Buttons below UserProfileCard */}
               <div className="mt-6 space-y-4">
-                {/* Manage Violations Button - Only for Admin */}
                 {userType === 'admin' && (
                   <div style={{ marginBottom: '20px' }}>
-                    <Button
-                      variant="primary"
-                      size="default"
-                      className="w-full"
-                      onClick={() => {
-                        // Navigate to manage violations page or open modal
-                        navigate('/admin/manage-violations');
-                      }}
-                    >
+                    <Button variant="primary" size="default" className="w-full" onClick={() => navigate('/admin/manage-violations')}>
                       Manage Violations
                     </Button>
                   </div>
                 )}
-
-                {/* Violation Feedback Button */}
                 <div style={{ marginBottom: '20px' }}>
-                  <Button
-                    variant="primary"
-                    size="default"
-                    className="w-full"
-                    onClick={handleFeedbackClick}
-                  >
+                  <Button variant="primary" size="default" className="w-full" onClick={handleFeedbackClick}>
                     Violation Feedback
                   </Button>
                 </div>
-
-                {/* Logout Button */}
                 <div style={{ marginBottom: '20px' }}>
-                  <Button
-                    variant="secondary"
-                    size="default"
-                    className="w-full"
-                    onClick={handleLogoutClick}
-                  >
+                  <Button variant="secondary" size="default" className="w-full" onClick={handleLogoutClick}>
                     Logout
                   </Button>
                 </div>
@@ -212,8 +188,6 @@ const NotificationsPage = ({ userType: propUserType }) => {
           </div>
         </div>
       </div>
-
-      {/* Feedback Modal */}
       {showFeedbackModal && (
         <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
       )}

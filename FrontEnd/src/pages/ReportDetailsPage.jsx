@@ -462,6 +462,21 @@ const ReportDetailsPage = () => {
                     )}
                   </div>
                 )}
+
+                {/* Standalone snapshot block — shows for reports that have a snapshot but no movement data (e.g. Violation Feedback posts) */}
+                {(!reportData.analyticsData.movement_summary || reportData.analyticsData.movement_summary.length === 0) &&
+                  reportData.analyticsData.snapshots && reportData.analyticsData.snapshots.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6" style={{ marginBottom: '20px' }}>
+                    <h4 className="font-semibold text-gray-800 mb-4">Violation Snapshot</h4>
+                    <div className="flex flex-wrap gap-4">
+                      {reportData.analyticsData.snapshots.map((snap, idx) => (
+                        <div key={idx} className="w-[180px] h-[180px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                          <img src={snap} alt={`Snapshot ${idx}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

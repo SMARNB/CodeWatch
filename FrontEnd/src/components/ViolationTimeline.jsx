@@ -2,31 +2,7 @@ import React from 'react';
 import './CustomCSS/ViolationTimeline.css';
 
 const ViolationTimeline = ({ timelineData = [] }) => {
-  // Default data structure: array of objects with week, day, hour, and intensity
-  // intensity: 0 = none, 1 = light, 2 = medium, 3 = high
-  const generateDefaultData = () => {
-    const defaultData = [];
-    const weeks = 53;
-    const daysPerWeek = 7;
-    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
-    
-    for (let week = 0; week < weeks; week++) {
-      for (let day = 0; day < daysPerWeek; day++) {
-        // Random intensity for demo (mostly 0-1, occasional 2-3)
-        const intensity = Math.random() > 0.7 ? Math.floor(Math.random() * 4) : 0;
-        defaultData.push({
-          week,
-          day,
-          hour: hours[Math.floor(Math.random() * hours.length)],
-          intensity,
-          date: new Date(2025, 0, week * 7 + day + 1).toISOString().split('T')[0],
-        });
-      }
-    }
-    return defaultData;
-  };
-
-  const data = timelineData.length > 0 ? timelineData : generateDefaultData();
+  const data = timelineData || [];
 
   // Get color based on intensity
   const getBlockStyle = (intensity) => {
@@ -154,39 +130,22 @@ const ViolationTimeline = ({ timelineData = [] }) => {
         </div>
       </div>
 
-      {/* Footer - Live Violations */}
-      <div className="absolute top-[241px] left-[42px]">
+      {/* Footer - Title + Intensity Legend */}
+      <div className="absolute top-[245px] left-[42px]">
         <p
-          className="text-[17px] font-semibold text-[#3f4299] leading-[30px] whitespace-nowrap"
+          className="text-[15px] font-semibold text-[#3f4299] leading-[20px] whitespace-nowrap"
           style={{ fontFamily: "'Open Sans', sans-serif" }}
         >
-          Live Violations
+          Violation Activity (Past Year)
         </p>
       </div>
-
-      {/* Violation Types Legend */}
-      <div className="absolute top-[266px] left-[42px]">
-        <p
-          className="text-[17px] font-semibold text-black leading-[30px] whitespace-pre-wrap"
-          style={{ fontFamily: "'Open Sans', sans-serif" }}
-        >
-          Types of Violations:
-          <br />
-          {'     '}
-          <span className="inline-flex items-center">
-            <span className="w-2 h-2 bg-[#3f4299] rounded-full mr-1"></span>
-            Dress Code Violations
-          </span>
-          {'     '}
-          <span className="inline-flex items-center">
-            <span className="w-2 h-2 bg-[#3f4299] rounded-full mr-1"></span>
-            Unauthorized predestine
-          </span>
-          {' '}
-          Visitors
-          {'     '}
-          Non violators
-        </p>
+      <div className="absolute top-[275px] left-[42px] flex items-center gap-1.5">
+        <span className="text-[12px] font-normal text-[rgba(89,115,147,0.7)]" style={{ fontFamily: "'Open Sans', sans-serif" }}>Fewer</span>
+        <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: 'transparent', border: '1px solid rgba(63, 66, 153, 0.15)' }}></span>
+        <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: 'rgba(63, 66, 153, 0.04)' }}></span>
+        <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: 'rgba(63, 66, 153, 0.32)' }}></span>
+        <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: '#3f4299' }}></span>
+        <span className="text-[12px] font-normal text-[rgba(89,115,147,0.7)]" style={{ fontFamily: "'Open Sans', sans-serif" }}>More</span>
       </div>
     </div>
   );

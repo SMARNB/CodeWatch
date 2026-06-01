@@ -60,8 +60,18 @@ const GenerateAnalyticsPage = () => {
 
   // Filter options
   const genderOptions = ['Male', 'Female', 'Other'];
-  const departmentOptions = ['RSCI', 'Law', 'Engineering', 'Business', 'Arts', 'Science'];
-  const userTypeOptions = ['Students', 'Employees', 'Visitors', 'Contractors'];
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [userTypeOptions, setUserTypeOptions] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/analytics-filters/')
+      .then(res => res.json())
+      .then(data => {
+        setDepartmentOptions(data.departments || []);
+        setUserTypeOptions(data.roles || []);
+      })
+      .catch(err => console.error('Failed to load filter options:', err));
+  }, []);
 
   // Handle option selection for multi-select dropdowns
   const handleGenderToggle = (option) => {
@@ -102,124 +112,53 @@ const GenerateAnalyticsPage = () => {
   // Generate analytics data based on filters
   // --- REPLACEMENT 1: GENERATE DATA FROM REAL COUNTS ---
   const generateAnalyticsData = (realCounts) => {
-
-    // Extract real numbers from Database Response
-    // Default to 0 if undefined
     const nonViolators = realCounts.nonViolators || 0;
     const violators = realCounts.violators || 0;
     const unauthorized = realCounts.unauthorized || 0;
     const visitors = realCounts.visitors || 0;
-    const victors = realCounts.victors || 0;
+    const monthlyViolations = realCounts.monthlyViolations || [];
+    const timelineData = realCounts.timelineData || [];
 
-    // 1. PIE CHART (Real Data)
-    const newPieChartData = {
-      labels: ['Non-Violators', 'Unauthorized', 'Victors', 'Violators'],
+    const pieChartData = {
+      labels: ['Non-Violators', 'Violators', 'Unauthorized', 'Visitors'],
       datasets: [{
-        label: 'Detection per Anum',
-        data: [nonViolators, unauthorized, victors, violators],
-        backgroundColor: [
-          '#10B981', // Green
-          '#F59E0B', // Orange
-          '#3B82F6', // Blue
-          '#EF4444', // Red
-        ],
+        label: 'People',
+        data: [nonViolators, violators, unauthorized, visitors],
+        backgroundColor: ['#10B981', '#EF4444', '#F59E0B', '#3B82F6'],
         borderColor: '#ffffff',
         borderWidth: 2,
       }],
     };
 
-    // Helper: Create a fake trend line that matches the final real number
-    const generateTrend = (finalValue) => {
-      const trend = [];
-      const base = Math.max(0, finalValue - 5);
-      for (let i = 0; i < 6; i++) {
-        // Create a random path leading up to the real value
-        trend.push(Math.round(base + (Math.random() * (finalValue - base))));
-      }
-      trend[5] = finalValue; // Ensure last point matches reality
-      return trend;
-    };
-
-    // 2. STAT CARDS (Real Data + Simulated Trend)
-    const newStatCardsData = [
-      {
-        title: 'Non-Violators',
-        value: nonViolators.toString(),
-        percentageChange: '+5.0%',
-        miniChartData: generateTrend(nonViolators)
-      },
-      {
-        title: 'Violators',
-        value: violators.toString(),
-        percentageChange: '+2.1%',
-        miniChartData: generateTrend(violators)
-      },
-      {
-        title: 'Unauthorized',
-        value: unauthorized.toString(),
-        percentageChange: '-1.5%',
-        miniChartData: generateTrend(unauthorized)
-      },
-      {
-        title: 'Visitors',
-        value: visitors.toString(),
-        percentageChange: '+12%',
-        miniChartData: generateTrend(visitors)
-      }
+    let momChange = '';
+    if (monthlyViolations.length >= 2) {
+      const last = monthlyViolations[monthlyViolations.length - 1].count;
+      const prev = monthlyViolations[monthlyViolations.length - 2].count;
+      if (prev > 0) momChange = `${last - prev >= 0 ? '+' : ''}${(((last - prev) / prev) * 100).toFixed(1)}%`;
+      else momChange = last > 0 ? '+100%' : '0%';
+    }
+    const trend = monthlyViolations.slice(-6).map(mo => mo.count);
+    const sparkline = trend.length ? trend : [0];
+    const statCardsData = [
+      { title: 'Non-Violators', value: nonViolators.toString(), percentageChange: momChange, miniChartData: sparkline },
+      { title: 'Violators', value: violators.toString(), percentageChange: momChange, miniChartData: sparkline },
+      { title: 'Unauthorized', value: unauthorized.toString(), percentageChange: momChange, miniChartData: sparkline },
+      { title: 'Visitors', value: visitors.toString(), percentageChange: momChange, miniChartData: sparkline },
     ];
 
-    // 3. LINE GRAPH (Simulated Shape scaled to Real Total)
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    // We scale the graph so the peak is roughly equal to total violations
-    const scaleFactor = Math.max(violators, 5) / 5;
-    const baseCurve = [3, 4, 2, 5, 4, 6, 3, 5, 4, 5, 5, 6];
-
-    const newLineGraphData = {
-      labels: months,
+    const lineGraphData = {
+      labels: monthlyViolations.map(mo => mo.month),
       datasets: [{
         label: 'Violation Occurrence',
-        data: baseCurve.map(v => Math.round(v * scaleFactor)),
+        data: monthlyViolations.map(mo => mo.count),
         borderColor: '#3B82F6',
         backgroundColor: 'rgba(59, 130, 246, 0.3)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 5,
-        pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#3B82F6',
-        pointBorderWidth: 3,
+        fill: true, tension: 0.4, pointRadius: 5,
+        pointBackgroundColor: '#ffffff', pointBorderColor: '#3B82F6', pointBorderWidth: 3,
       }],
     };
 
-    // 4. TIMELINE HEATMAP (Simulated Distribution)
-    const generateTimelineData = () => {
-      const timelineDataArray = [];
-      // Only show heat if there are actual violators
-      const hasViolations = violators > 0;
-
-      for (let week = 0; week < 53; week++) {
-        for (let day = 0; day < 7; day++) {
-          let intensity = 0;
-          if (hasViolations) {
-            const rand = Math.random();
-            if (rand > 0.85) intensity = 1;
-            if (rand > 0.95) intensity = 2;
-          }
-          timelineDataArray.push({
-            week, day, intensity,
-            hour: '12:00',
-            date: new Date().toISOString()
-          });
-        }
-      }
-      return timelineDataArray;
-    };
-
-    return {
-      pieChartData: newPieChartData,
-      statCardsData: newStatCardsData,
-      lineGraphData: newLineGraphData,
-      timelineData: generateTimelineData()
-    };
+    return { pieChartData, statCardsData, lineGraphData, timelineData };
   };
 
   // Generate report ID
