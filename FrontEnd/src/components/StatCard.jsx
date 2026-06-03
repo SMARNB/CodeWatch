@@ -69,12 +69,12 @@ const StatCard = ({ title, value, percentageChange, miniChartData = [] }) => {
   return (
     <div className="relative w-full h-[148px] bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out">
       {/* Title */}
-      <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
+      <div className="absolute top-6 left-6 text-2xl font-semibold text-black leading-[24px] whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
         {title}
       </div>
 
       {/* Value */}
-      <div className="absolute top-[54px] left-6 text-4xl font-bold leading-10 whitespace-nowrap text-[#3f4299]">
+      <div className="absolute top-[60px] left-6 text-6xl font-bold leading-tight whitespace-nowrap text-[#3f4299]">
         {formattedValue}
       </div>
 

@@ -57,7 +57,7 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
     responsive: true,
     maintainAspectRatio: false,
     layout: {
-      padding: 0, 
+      padding: 0,
     },
     plugins: {
       legend: {
@@ -93,7 +93,7 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
         ticks: {
           color: '#000000',
           font: {
-            size: 14,
+            size: 16,
             family: "'Open Sans', sans-serif",
           },
           padding: 8,
@@ -117,7 +117,7 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
         ticks: {
           color: '#000000',
           font: {
-            size: 14,
+            size: 16,
             family: "'Open Sans', sans-serif",
           },
           padding: 8,
@@ -152,8 +152,10 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
   if (isLoading) {
     return (
       <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 box-border h-full">
-        <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
-          Violation Occurrence
+        <div className="flex items-center justify-center pb-2 mb-4" style={{ marginTop: '20px' }}>
+          <p className="text-2xl font-bold text-black leading-normal whitespace-nowrap text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            Violation Occurrence
+          </p>
         </div>
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 mt-12">
           <div className="w-12 h-12 border-4 border-gray-200 border-t-[#3f4299] rounded-full animate-spin"></div>
@@ -165,13 +167,12 @@ const LineGraphContainer = ({ chartData, isLoading = false }) => {
 
   return (
     <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out h-full flex flex-col">
-      
-      {/* Title - FIXED: Now positioned at top-left, sequential, and with margin-bottom */}
-      <div 
-        className="text-lg font-semibold text-black leading-[18px] whitespace-nowrap"
-        style={{ paddingTop: '10px', paddingLeft: '10px', marginBottom: '10px' }}
-      >
-        Violation Occurrence
+
+      {/* Title - FIXED */}
+      <div className="flex items-center justify-center pb-2 mb-4" style={{ marginTop: '20px' }}>
+        <p className="text-2xl font-bold text-black leading-normal whitespace-nowrap text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          Violation Occurrence
+        </p>
       </div>
 
       {/* Chart Container - FIXED FOR FLUID HEIGHT */}

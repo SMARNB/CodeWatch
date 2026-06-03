@@ -241,8 +241,7 @@ const Navbar = () => {
     { name: 'Generate Analytics', path: '/analytics', roles: ['admin'] },
     { name: 'Previous Reports', path: '/reports', roles: ['admin', 'ssd', 'department-head'] },
     { name: 'Add Visitor', path: '/guard/add-visitor', roles: ['guard'] },
-    { name: 'Active Visitors', path: '/guard/visitors', roles: ['guard'] },
-    { name: 'Log out', path: '/login', roles: ['admin', 'ssd', 'department-head', 'guard'] }
+    { name: 'Active Visitors', path: '/guard/visitors', roles: ['guard'] }
   ];
 
   // Filter links based on user type
@@ -274,50 +273,71 @@ const Navbar = () => {
             {(currentUserType === 'admin' || currentUserType === 'ssd') && (
               <div className="relative" ref={searchRef}>
                 <div className="relative flex items-center">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                   <input
                     type="text"
                     placeholder="Search people, cameras..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => { if(searchResults) setIsSearchOpen(true); }}
-                    className="w-64 pl-4 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent focus:bg-white transition-all"
+                    className="w-64 pl-9 pr-4 py-[7px] text-sm bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:border-transparent focus:bg-white transition-all"
+                    style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '32px' }}
                   />
                 </div>
-                
+
                 {isSearchOpen && searchResults && (
-                  <div className="absolute top-12 left-0 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+                  <div
+                    className="absolute top-11 left-0 w-[300px] bg-white border border-gray-200 rounded-[8px] z-50 max-h-96 overflow-y-auto"
+                    style={{ boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', fontFamily: "'Open Sans', sans-serif" }}
+                  >
                     {/* People Results */}
                     {searchResults.people && searchResults.people.length > 0 && (
-                      <div className="p-2 border-b border-gray-100">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase px-2 mb-1">People</h4>
+                      <div className="border-b border-gray-100">
+                        <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest" style={{ padding: '10px 10px 4px 10px', fontFamily: "'Open Sans', sans-serif" }}>People</h4>
                         {searchResults.people.map(person => (
-                          <div key={person.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
-                            <div>
-                              <div className="text-sm font-semibold text-gray-900">{person.name}</div>
-                              <div className="text-xs text-gray-500">{person.employee_id} • {person.department}</div>
+                          <div
+                            key={person.id}
+                            className="flex items-center border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                            style={{ padding: '10px' }}
+                            onClick={() => { setIsSearchOpen(false); navigate(`/live-track/${person.id}`); }}
+                          >
+                            <div className="flex-1 min-w-0 mr-3">
+                              <div className="text-[14px] font-semibold text-gray-900 truncate" style={{ fontFamily: "'Open Sans', sans-serif" }}>{person.name}</div>
+                              <div className="text-[12px] text-gray-500 mt-0.5" style={{ fontFamily: "'Open Sans', sans-serif" }}>{person.employee_id} • {person.department}</div>
                             </div>
-                            <button onClick={() => { setIsSearchOpen(false); navigate(`/live-track/${person.id}`); }} className="px-3 py-1 bg-[#3f4299] text-white text-xs rounded-lg hover:bg-[#2d3170]">Live Track</button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setIsSearchOpen(false); navigate(`/live-track/${person.id}`); }}
+                              className="flex-shrink-0 py-1 mr-1 bg-[#3f4299] text-white text-[11px] font-semibold rounded-full hover:bg-[#2d3170] transition-colors whitespace-nowrap"
+                              style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '14px', paddingRight: '14px' }}
+                            >Live Track</button>
                           </div>
                         ))}
                       </div>
                     )}
                     {/* Cameras Results */}
                     {searchResults.cameras && searchResults.cameras.length > 0 && (
-                      <div className="p-2 border-b border-gray-100">
-                        <h4 className="text-xs font-bold text-gray-500 uppercase px-2 mb-1">Cameras</h4>
+                      <div className="border-b border-gray-100">
+                        <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest" style={{ padding: '10px 10px 4px 10px', fontFamily: "'Open Sans', sans-serif" }}>Cameras</h4>
                         {searchResults.cameras.map(cam => (
-                          <div key={cam.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onClick={() => { setIsSearchOpen(false); navigate(getDashboardPath()); }}>
-                            <div>
-                              <div className="text-sm font-semibold text-gray-900">{cam.name}</div>
-                              <div className="text-xs text-gray-500">{cam.location}</div>
+                          <div
+                            key={cam.id}
+                            className="flex items-center border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                            style={{ padding: '10px' }}
+                            onClick={() => { setIsSearchOpen(false); navigate(getDashboardPath()); }}
+                          >
+                            <div className="flex-1 min-w-0 mr-3">
+                              <div className="text-[14px] font-semibold text-gray-900 truncate" style={{ fontFamily: "'Open Sans', sans-serif" }}>{cam.name}</div>
+                              <div className="text-[12px] text-gray-500 mt-0.5" style={{ fontFamily: "'Open Sans', sans-serif" }}>{cam.location}</div>
                             </div>
-                            <div className={`w-2 h-2 rounded-full ${cam.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${cam.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                           </div>
                         ))}
                       </div>
                     )}
                     {(!searchResults.people?.length && !searchResults.cameras?.length) && (
-                      <div className="p-4 text-sm text-gray-500 text-center">No results found.</div>
+                      <div className="text-[13px] text-gray-500 text-center" style={{ padding: '20px 10px', fontFamily: "'Open Sans', sans-serif" }}>No results found.</div>
                     )}
                   </div>
                 )}
@@ -378,13 +398,14 @@ const Navbar = () => {
               />
             )}
 
-            {/* User Avatar Component (dropdown disabled — static badge only) */}
+            {/* User Avatar Component (dropdown: Change Password + Log out) */}
             <UserAvatar 
               username={userDisplayName || username}
               avatarUrl={userAvatarUrl}
               size="md"
-              showDropdown={false}
+              showDropdown={true}
               onLogout={handleLogout}
+              onChangePassword={() => navigate('/reset-password?mode=change')}
             />
 
             {/* Username Display - Show email address or display name */}
@@ -395,15 +416,7 @@ const Navbar = () => {
               {username || userDisplayName || 'username'}
             </span>
 
-            {/* Change Password link */}
-            <button
-              onClick={() => navigate('/reset-password?mode=change')}
-              className="hidden sm:block text-sm font-medium text-[#3f4299] hover:underline whitespace-nowrap"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-              title="Change your password"
-            >
-              Change Password
-            </button>
+
 
             {/* Mobile Menu Button */}
             <button

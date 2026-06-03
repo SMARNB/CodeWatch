@@ -54,23 +54,24 @@ const ReportItem = ({ reportId, description, onUpdate, onDelete, onClick, report
 
   return (
     <div 
-      className="bg-white rounded-[8px] shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+      className="bg-white rounded-[8px] shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
       onClick={handleItemClick}
+      style={{ padding: '16px', paddingLeft: '12px' }}
     >
       <div className="flex items-center justify-between">
         {/* Left side - Report Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-4">
-            {report.snapshot_url && (
-              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
-                <img src={report.snapshot_url} alt="Violation Snapshot" className="w-full h-full object-cover" />
-              </div>
-            )}
             <div className="flex-shrink-0">
               <span className="text-sm font-semibold text-[#3f4299]" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {reportId}
               </span>
             </div>
+            {report.snapshot_url && (
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-gray-200" style={{ marginTop: '1px', marginBottom: '1px' }}>
+                <img src={report.snapshot_url} alt="Violation Snapshot" className="w-full h-full object-cover" />
+              </div>
+            )}
             <div className="flex-1 min-w-0 flex items-center gap-3">
               <p className="text-sm text-gray-700 truncate" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                 {description}
@@ -99,23 +100,25 @@ const ReportItem = ({ reportId, description, onUpdate, onDelete, onClick, report
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-32 bg-white rounded-[8px] shadow-lg border border-gray-200 z-50">
-              <div className="py-1">
-                <button
-                  onClick={handleUpdate}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors rounded-t-[8px]"
-                  style={{ fontFamily: "'Open Sans', sans-serif" }}
-                >
-                  Update
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-[8px]"
-                  style={{ fontFamily: "'Open Sans', sans-serif" }}
-                >
-                  Delete
-                </button>
-              </div>
+            <div className="absolute right-0 mt-2 w-36 bg-white rounded-[8px] z-50 overflow-hidden flex flex-col border border-gray-200"
+              style={{
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              }}
+            >
+              <button
+                onClick={handleUpdate}
+                className="w-full h-[48px] flex items-center text-left text-[14px] text-gray-700 hover:bg-gray-50 hover:text-[#3f4299] transition-colors border-b border-gray-100"
+                style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '16px', paddingRight: '16px' }}
+              >
+                Update
+              </button>
+              <button
+                onClick={handleDelete}
+                className="w-full h-[48px] flex items-center text-left text-[14px] text-red-600 hover:bg-red-50 transition-colors"
+                style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '16px', paddingRight: '16px' }}
+              >
+                Delete
+              </button>
             </div>
           )}
         </div>

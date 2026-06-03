@@ -117,7 +117,7 @@ const VideoPlayer = ({
       {/* Camera Name UI */}
       {cameraName && (
         <div className="absolute top-4 left-4 z-20">
-          <div className="bg-black/60 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-white/10">
+          <div className="bg-black/60 backdrop-blur-sm text-white text-[36px] font-semibold px-4 py-2 rounded-lg shadow-lg border border-white/10">
             {cameraName}
           </div>
         </div>

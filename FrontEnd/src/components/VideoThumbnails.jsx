@@ -19,13 +19,13 @@ const CameraThumbnail = ({ camera, isSelected, onSelect }) => {
         >
             <CardContent className="flex flex-col items-center justify-center h-full w-full relative p-0">
                 {/* Background Image Preview */}
-                <img 
-                    src={`/live_feed_${camera.camera_id}.jpg?t=${timestamp}`} 
+                <img
+                    src={`/live_feed_${camera.camera_id}.jpg?t=${timestamp}`}
                     alt={camera.name}
                     className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity"
                     onError={(e) => { e.target.src = '/placeholder_camera.jpg'; }}
                 />
-                
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
 
                 {/* Status Indicator */}

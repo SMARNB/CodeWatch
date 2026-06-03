@@ -68,25 +68,25 @@ const NotificationItem = ({ notification, onClick }) => {
         case 'security':
           return (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1ZM12 7C13.1 7 14 7.9 14 9S13.1 11 12 11 10 10.1 10 9 10.9 7 12 7ZM12 13C14.67 13 17 14.33 17 16V17H7V16C7 14.33 9.33 13 12 13Z"/>
+              <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1ZM12 7C13.1 7 14 7.9 14 9S13.1 11 12 11 10 10.1 10 9 10.9 7 12 7ZM12 13C14.67 13 17 14.33 17 16V17H7V16C7 14.33 9.33 13 12 13Z" />
             </svg>
           );
         case 'camera':
           return (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 15C13.66 15 15 13.66 15 12S13.66 9 12 9 9 10.34 9 12 10.34 15 12 15ZM20 4H16.83L15 2H9L7.17 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 18H4V6H8.05L9.88 4H14.12L15.95 6H20V18Z"/>
+              <path d="M12 15C13.66 15 15 13.66 15 12S13.66 9 12 9 9 10.34 9 12 10.34 15 12 15ZM20 4H16.83L15 2H9L7.17 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 18H4V6H8.05L9.88 4H14.12L15.95 6H20V18Z" />
             </svg>
           );
         case 'system':
           return (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" />
             </svg>
           );
         default:
           return (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" />
             </svg>
           );
       }
@@ -100,7 +100,7 @@ const NotificationItem = ({ notification, onClick }) => {
       case 'error':
         return (
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M1 21H23L12 2L1 21ZM13 18H11V16H13V18ZM13 14H11V10H13V14Z"/>
+            <path d="M1 21H23L12 2L1 21ZM13 18H11V16H13V18ZM13 14H11V10H13V14Z" />
           </svg>
         );
       case 'green':
@@ -109,13 +109,13 @@ const NotificationItem = ({ notification, onClick }) => {
       case 'completed':
         return (
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z"/>
+            <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" />
           </svg>
         );
       default:
         return (
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/>
+            <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" />
           </svg>
         );
     }
@@ -134,12 +134,12 @@ const NotificationItem = ({ notification, onClick }) => {
   };
 
   return (
-    <div 
+    <div
       className={`
-        flex flex-row items-center p-4 rounded-lg border-l-4 
+        flex flex-row items-center p-4 rounded-[8px] border border-gray-200 shadow-sm
         ${statusStyles.bgColor} ${statusStyles.borderColor} 
         hover:shadow-md transition-all duration-200 ease-in-out
-        w-full mx-[100px] my-[20px] cursor-pointer
+        w-full cursor-pointer
       `}
       onClick={onClick}
     >
@@ -148,7 +148,7 @@ const NotificationItem = ({ notification, onClick }) => {
         w-3 h-3 rounded-full mr-3 flex-shrink-0
         ${statusStyles.dotColor}
       `} />
-      
+
       {/* Icon */}
       <div className={`
         mr-3 flex-shrink-0
@@ -156,7 +156,7 @@ const NotificationItem = ({ notification, onClick }) => {
       `}>
         {getIcon()}
       </div>
-      
+
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Message */}
@@ -166,14 +166,14 @@ const NotificationItem = ({ notification, onClick }) => {
         `}>
           {message}
         </div>
-        
+
         {/* Details */}
         {details && (
           <div className="text-xs text-gray-600 mb-1">
             {details}
           </div>
         )}
-        
+
         {/* Timestamp */}
         {timestamp && (
           <div className="text-xs text-gray-500">
@@ -181,7 +181,7 @@ const NotificationItem = ({ notification, onClick }) => {
           </div>
         )}
       </div>
-      
+
     </div>
   );
 };

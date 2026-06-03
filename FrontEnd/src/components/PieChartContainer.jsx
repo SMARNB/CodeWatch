@@ -82,8 +82,10 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
   if (isLoading) {
     return (
       <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 box-border">
-        <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
-          People by Category
+        <div className="flex items-center justify-start pb-2 mb-4" style={{ marginTop: '20px', marginLeft: '30px' }}>
+          <p className="text-2xl font-bold text-black leading-normal whitespace-nowrap text-left" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            People by Category
+          </p>
         </div>
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 mt-12">
           <div className="w-12 h-12 border-4 border-gray-200 border-t-[#3f4299] rounded-full animate-spin"></div>
@@ -99,15 +101,17 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
   return (
     <div className="relative w-full h-full flex flex-col bg-white border border-neutral-300 rounded-lg p-6 box-border hover:shadow-md transition-shadow duration-200 ease-in-out min-h-[400px]">
       {/* Title */}
-      <div className="absolute top-6 left-6 text-lg font-semibold text-black leading-[18px] whitespace-nowrap">
-        People by Category
+      <div className="flex items-center justify-start pb-2 mb-4" style={{ marginTop: '20px', marginLeft: '30px' }}>
+        <p className="text-2xl font-bold text-black leading-normal whitespace-nowrap text-left" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          People by Category
+        </p>
       </div>
 
       {/* Chart Container */}
       <div className="relative w-full flex-grow mt-6 mb-6">
         <div className="w-full h-full flex items-center justify-center" style={{ minHeight: '280px' }}>
-            <Pie data={data} options={chartOptions} />
-          
+          <Pie data={data} options={chartOptions} />
+
           {/* Center Total Display (for donut chart) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="text-center">
@@ -125,8 +129,8 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
       {/* Custom Legend - Split into two columns matching Figma design */}
       <div className="w-full flex justify-center items-start">
         {/* The main wrapper is now a single, horizontal Flex container */}
-        <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 w-full max-w-full"> 
-          
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 w-full max-w-full">
+
           {/* Combine all labels into one map loop */}
           {data.labels.map((label, index) => {
             const backgroundColor = data.datasets[0].backgroundColor[index];
@@ -137,7 +141,7 @@ const PieChartContainer = ({ chartData, isLoading = false }) => {
                   style={{ backgroundColor }}
                 />
                 {/* Ensure text does not wrap */}
-                <span className="text-sm font-normal text-black leading-[14px] whitespace-nowrap">
+                <span className="text-base font-medium text-black leading-normal whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   {label}
                 </span>
               </div>

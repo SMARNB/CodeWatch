@@ -1,12 +1,124 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import UserProfileCard from '../components/UserProfileCard';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import Button from '../components/Button';
 import Logo from '../components/Logo';
+import ConfirmModal from '../components/ConfirmModal';
 import backgroundEllipse from '../assets/background.svg';
+
+// Custom Input for DatePicker to match Dropdown styling
+const CustomDateInput = forwardRef(({ value, onClick, placeholder, isActive }, ref) => (
+  <button
+    onClick={onClick}
+    ref={ref}
+    type="button"
+    className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${
+      isActive
+        ? 'border-[#3f4299]/50 shadow-sm text-[#3f4299] font-medium'
+        : 'border-[#bab6b6] hover:border-[#3f4299]/50 text-gray-700'
+    }`}
+    style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px', minWidth: '160px' }}
+  >
+    <span>{value || placeholder}</span>
+    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  </button>
+));
+
+const CustomSelect = ({ value, onChange, options, placeholder, width = '200px' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div className="relative" ref={ref} style={{ width }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${isOpen
+          ? 'border-[#3f4299] shadow-md'
+          : value && value !== 'all'
+            ? 'border-[#3f4299]/50 shadow-sm'
+            : 'border-[#bab6b6] hover:border-[#3f4299]/50'
+          }`}
+        style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
+      >
+        <span className={value && value !== 'all' ? 'text-[#3f4299] font-medium' : 'text-gray-700'}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <svg
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute bg-white rounded-[8px] z-50 max-h-[400px] flex flex-col border border-gray-200"
+          style={{
+            top: '100%',
+            left: 0,
+            minWidth: '100%',
+            width: 'max-content',
+            marginTop: '4px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            fontFamily: "'Open Sans', sans-serif"
+          }}
+        >
+          <div className="max-h-[320px] overflow-y-auto custom-scrollbar bg-white rounded-[8px]">
+            {options.map((option) => {
+              const isSelected = value === option.value;
+              return (
+                <div
+                  key={option.value}
+                  className={`flex items-center cursor-pointer transition-colors border-b border-gray-100 ${isSelected
+                    ? 'bg-[#f8f9ff] hover:bg-gray-50'
+                    : 'hover:bg-gray-50 bg-white'
+                    }`}
+                  style={{ padding: '10px' }}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span
+                    className={`flex-1 ${isSelected ? 'text-[#3f4299] font-bold' : 'text-gray-700 font-medium'}`}
+                    style={{ fontSize: '14px' }}
+                  >
+                    {option.label}
+                  </span>
+                  {isSelected && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#3f4299] flex-shrink-0 ml-2" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ManageViolationsPage = () => {
   const navigate = useNavigate();
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const [user, setUser] = useState(null);
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,8 +129,8 @@ const ManageViolationsPage = () => {
 
   const [typeFilter, setTypeFilter] = useState('all');
   const [cameraFilter, setCameraFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(null);
+  const [dateTo, setDateTo] = useState(null);
 
   const [selectedViolations, setSelectedViolations] = useState([]);
 
@@ -100,8 +212,8 @@ const ManageViolationsPage = () => {
         page_size: 50,
         ...(typeFilter !== 'all' && { type: typeFilter }),
         ...(cameraFilter !== 'all' && { camera_id: cameraFilter }),
-        ...(dateFrom && { date_from: dateFrom }),
-        ...(dateTo && { date_to: dateTo }),
+        ...(dateFrom && { date_from: dateFrom.toISOString().split('T')[0] }),
+        ...(dateTo && { date_to: dateTo.toISOString().split('T')[0] }),
       });
 
       const response = await fetch(`/api/violations/?${queryParams.toString()}`);
@@ -152,24 +264,27 @@ const ManageViolationsPage = () => {
     }
   };
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedViolations.length === 0) return;
-    if (window.confirm(`Are you sure you want to delete ${selectedViolations.length} violation(s)?`)) {
-      try {
-        // Delete sequentially or parallel
-        const violationIdsToDelete = selectedViolations;
-
-        await Promise.all(violationIdsToDelete.map(id =>
-          fetch(`/api/violations/${id}/`, { method: 'DELETE' })
-        ));
-
-        setViolations(prev => prev.filter(v => !selectedViolations.includes(v.id)));
-        setSelectedViolations([]);
-      } catch (err) {
-        console.error("Failed to delete violations:", err);
-        alert("Failed to delete some violations.");
+    setConfirmState({
+      isOpen: true,
+      title: 'Confirm Deletion',
+      message: `Are you sure you want to delete ${selectedViolations.length} violation(s)?`,
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const violationIdsToDelete = selectedViolations;
+          await Promise.all(violationIdsToDelete.map(id =>
+            fetch(`/api/violations/${id}/`, { method: 'DELETE' })
+          ));
+          setViolations(prev => prev.filter(v => !selectedViolations.includes(v.id)));
+          setSelectedViolations([]);
+        } catch (err) {
+          console.error("Failed to delete violations:", err);
+          alert("Failed to delete some violations.");
+        }
       }
-    }
+    });
   };
 
   const handleStatusChange = (violationId, newStatus) => {
@@ -223,105 +338,79 @@ const ManageViolationsPage = () => {
         <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
-      {/* Navbar */}
-      <div className="relative bg-white shadow-sm border-b border-gray-200 w-full" style={{ height: '100px' }}>
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-full">
-          <div className="flex justify-between items-center h-full w-full">
-            {/* Logo - Left */}
-            <div className="flex items-center" style={{ marginLeft: '20px' }}>
-              <Logo size="default" showText={false} />
-            </div>
-
-            {/* Code Watch - Center */}
-            <div className="flex-1 flex justify-center">
-              <h1 className="text-2xl font-bold text-[#3f4299] text-center">
-                Code Watch
-              </h1>
-            </div>
-
-            {/* Right side - Empty for balance */}
-            <div className="w-16"></div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="relative w-full" style={{ paddingTop: '100px', paddingLeft: '100px', paddingRight: '100px' }}>
         <div className="flex w-full">
           {/* Left Column - Main Content */}
           <div className="flex-1">
-            {/* Header with Back Button */}
-            <div className="flex items-center justify-between" style={{ marginBottom: '20px' }}>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handleBackClick}
-                  className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-[#3f4299] hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Back"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <h2 className="text-3xl font-bold text-[#3f4299]">
-                  Manage Violations
-                </h2>
-              </div>
-            </div>
+
 
             {/* Search and Filter Bar */}
             <div className="flex flex-wrap items-center gap-4" style={{ marginBottom: '20px' }}>
-              <select
+              <CustomSelect
                 value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value); handleFilterChange(); }}
-                className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-                style={{ fontFamily: "'Open Sans', sans-serif" }}
-              >
-                <option value="all">All Violation Types</option>
-                <option value="Unauthorized Access">Unauthorized Access</option>
-                <option value="Dress Code Violation">Dress Code Violation</option>
-                <option value="Restricted Area">Restricted Area</option>
-              </select>
+                onChange={(val) => { setTypeFilter(val); handleFilterChange(); }}
+                options={[
+                  { value: 'all', label: 'All Violation Types' },
+                  { value: 'Unauthorized Access', label: 'Unauthorized Access' },
+                  { value: 'Dress Code Violation', label: 'Dress Code Violation' },
+                  { value: 'Restricted Area', label: 'Restricted Area' }
+                ]}
+                placeholder="Violation Type"
+                width="220px"
+              />
 
-              <select
+              <CustomSelect
                 value={cameraFilter}
-                onChange={(e) => { setCameraFilter(e.target.value); handleFilterChange(); }}
-                className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-                style={{ fontFamily: "'Open Sans', sans-serif" }}
-              >
-                <option value="all">All Cameras</option>
-                <option value="CAM-001">CAM-001 (Main Entrance)</option>
-                <option value="CAM-002">CAM-002 (Server Room)</option>
-                <option value="CAM-003">CAM-003 (Hallway A)</option>
-              </select>
+                onChange={(val) => { setCameraFilter(val); handleFilterChange(); }}
+                options={[
+                  { value: 'all', label: 'All Cameras' },
+                  { value: 'CAM-001', label: 'CAM-001 (Main Entrance)' },
+                  { value: 'CAM-002', label: 'CAM-002 (Server Room)' },
+                  { value: 'CAM-003', label: 'CAM-003 (Hallway A)' }
+                ]}
+                placeholder="Camera"
+                width="220px"
+              />
 
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => { setDateFrom(e.target.value); handleFilterChange(); }}
-                  className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299]"
+                <DatePicker
+                  selected={dateFrom}
+                  onChange={(date) => { setDateFrom(date); handleFilterChange(); }}
+                  customInput={<CustomDateInput isActive={!!dateFrom} />}
+                  placeholderText="Start Date"
+                  dateFormat="MM/dd/yyyy"
                 />
-                <span className="text-gray-500">to</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => { setDateTo(e.target.value); handleFilterChange(); }}
-                  className="h-[48px] px-4 border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299]"
+                <span className="text-gray-500 font-medium">to</span>
+                <DatePicker
+                  selected={dateTo}
+                  onChange={(date) => { setDateTo(date); handleFilterChange(); }}
+                  customInput={<CustomDateInput isActive={!!dateTo} />}
+                  placeholderText="End Date"
+                  dateFormat="MM/dd/yyyy"
                 />
               </div>
             </div>
 
             {/* Actions Bar */}
             {selectedViolations.length > 0 && (
-              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-[8px] p-3" style={{ marginBottom: '20px' }}>
-                <span className="text-sm font-medium text-blue-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                  {selectedViolations.length} violation(s) selected
-                </span>
+              <div className="flex items-center justify-between px-2 py-2" style={{ marginBottom: '20px' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#3f4299]/10 flex items-center justify-center text-[#3f4299]">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <span className="text-[15px] font-semibold text-[#3f4299]" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                    {selectedViolations.length} violation(s) selected
+                  </span>
+                </div>
                 <button
                   onClick={handleDeleteSelected}
-                  className="px-4 py-2 bg-red-500 text-white rounded-[8px] hover:bg-red-600 transition-colors text-sm font-medium"
-                  style={{ fontFamily: "'Open Sans', sans-serif" }}
+                  className="py-2 bg-white border-2 border-red-500 text-red-500 rounded-[8px] hover:bg-red-50 transition-colors text-[14px] font-bold flex items-center gap-2 outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+                  style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '10px', width: '175px', justifyContent: 'center' }}
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                   Delete Selected
                 </button>
               </div>
@@ -353,6 +442,7 @@ const ManageViolationsPage = () => {
                             checked={selectedViolations.length === violations.length && violations.length > 0}
                             onChange={handleSelectAll}
                             className="w-4 h-4 text-[#3f4299] border-[#bab6b6] rounded focus:ring-[#3f4299]"
+                            style={{ marginLeft: '10px', marginTop: '5px' }}
                           />
                         </th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
@@ -378,6 +468,7 @@ const ManageViolationsPage = () => {
                               checked={selectedViolations.includes(violation.id)}
                               onChange={() => handleSelectViolation(violation.id)}
                               className="w-4 h-4 text-[#3f4299] border-[#bab6b6] rounded focus:ring-[#3f4299]"
+                              style={{ marginLeft: '10px', marginTop: '5px' }}
                             />
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{violation.id}</td>
@@ -403,16 +494,22 @@ const ManageViolationsPage = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={async () => {
-                                  if (window.confirm('Are you sure you want to delete this violation record?')) {
-                                    try {
-                                      await fetch(`/api/violations/${violation.id}/`, { method: 'DELETE' });
-                                      setViolations(prev => prev.filter(v => v.id !== violation.id));
-                                      alert("Record Deleted");
-                                    } catch (err) {
-                                      console.error("Failed to delete:", err);
-                                      alert("Failed to delete violation.");
+                                  setConfirmState({
+                                    isOpen: true,
+                                    title: 'Delete Violation',
+                                    message: 'Are you sure you want to delete this violation record?',
+                                    isDanger: true,
+                                    onConfirm: async () => {
+                                      try {
+                                        await fetch(`/api/violations/${violation.id}/`, { method: 'DELETE' });
+                                        setViolations(prev => prev.filter(v => v.id !== violation.id));
+                                        alert("Record Deleted");
+                                      } catch (err) {
+                                        console.error("Failed to delete:", err);
+                                        alert("Failed to delete violation.");
+                                      }
                                     }
-                                  }
+                                  });
                                 }}
                                 className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
                               >
@@ -455,16 +552,13 @@ const ManageViolationsPage = () => {
             )}
           </div>
 
-          {/* Right Column - User Profile Card */}
-          <div className="w-80 flex-shrink-0" style={{ marginLeft: '100px' }}>
-            <div style={{ marginTop: '0px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                {user && <UserProfileCard user={user} />}
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
+      <ConfirmModal
+        {...confirmState}
+        onClose={() => setConfirmState(s => ({ ...s, isOpen: false }))}
+      />
     </div>
   );
 };

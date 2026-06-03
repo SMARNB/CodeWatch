@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
-import UserProfileCard from '../components/UserProfileCard';
 import ReportItem from '../components/ReportItem';
+import ConfirmModal from '../components/ConfirmModal';
 import backgroundEllipse from '../assets/background.svg';
 
 const PreviousReportsPage = () => {
   const [user, setUser] = useState(null);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Confirm Modal states
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState(null);
 
   const userType = localStorage.getItem('userType') || 'admin';
 
@@ -138,34 +141,43 @@ const PreviousReportsPage = () => {
     window.open(url, '_blank');
   };
 
-  // Handle delete action
-  const handleDelete = async (reportId) => {
-    if (window.confirm(`Are you sure you want to delete report ${reportId}?`)) {
-      try {
-        const response = await fetch(`/api/delete-report/${reportId}/`, {
-          method: 'DELETE'
-        });
+  // Handle delete click - Open Modal
+  const handleDelete = (reportId) => {
+    setReportToDelete(reportId);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Execute actual deletion
+  const executeDelete = async () => {
+    if (!reportToDelete) return;
+    
+    try {
+      const response = await fetch(`/api/delete-report/${reportToDelete}/`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Remove from state
+        setReports(prev => prev.filter(report => report.id !== reportToDelete));
+        console.log('Report deleted:', reportToDelete);
         
-        if (response.ok) {
-          // Remove from state
-          setReports(prev => prev.filter(report => report.id !== reportId));
-          console.log('Report deleted:', reportId);
-          
-          // Also update localStorage if applicable
-          const reportsJson = localStorage.getItem('analyticsReports');
-          if (reportsJson) {
-            const reports = JSON.parse(reportsJson);
-            const updatedReports = reports.filter(report => report.id !== reportId);
-            localStorage.setItem('analyticsReports', JSON.stringify(updatedReports));
-            window.dispatchEvent(new Event('storage'));
-            window.dispatchEvent(new Event('reportsUpdated'));
-          }
-        } else {
-          console.error('Failed to delete report from server');
+        // Also update localStorage if applicable
+        const reportsJson = localStorage.getItem('analyticsReports');
+        if (reportsJson) {
+          const reports = JSON.parse(reportsJson);
+          const updatedReports = reports.filter(report => report.id !== reportToDelete);
+          localStorage.setItem('analyticsReports', JSON.stringify(updatedReports));
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new Event('reportsUpdated'));
         }
-      } catch (error) {
-        console.error('Error deleting report:', error);
+      } else {
+        console.error('Failed to delete report from server');
       }
+    } catch (error) {
+      console.error('Error deleting report:', error);
+    } finally {
+      setIsConfirmModalOpen(false);
+      setReportToDelete(null);
     }
   };
 
@@ -176,18 +188,11 @@ const PreviousReportsPage = () => {
         <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
-      {/* Navigation Bar */}
-      <Navbar />
-
       {/* Main Content */}
       <div className="relative w-full" style={{ paddingTop: '100px', paddingLeft: '100px', paddingRight: '100px' }}>
         <div className="flex w-full">
           {/* Left Column - Main Content */}
           <div className="flex-1">
-            {/* Page Title */}
-            <h2 className="text-3xl font-bold text-[#3f4299] mb-5" style={{ marginBottom: '20px' }}>
-              Previous Reports
-            </h2>
 
             {/* Reports List */}
             {loading ? (
@@ -221,16 +226,19 @@ const PreviousReportsPage = () => {
             )}
           </div>
 
-          {/* Right Column - User Profile Card */}
-          <div className="w-80 flex-shrink-0" style={{ marginLeft: '100px' }}>
-            <div style={{ marginTop: '0px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                {user && <UserProfileCard user={user} />}
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={executeDelete}
+        title="Delete Report"
+        message={`Are you sure you want to completely delete this analytics report? This action cannot be undone.`}
+        confirmText="Delete"
+        isDanger={true}
+      />
     </div>
   );
 };

@@ -1130,14 +1130,19 @@ def forgot_password(request):
 
 @api_view(['POST'])
 def reset_user_password(request, user_id):
-    """ Admin resets a user's password to the default. """
+    """ Admin resets a user's password to the default AND flags the account so the
+        user must set their own password on next login. """
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return Response({"status": "error", "message": "User not found"}, status=404)
     user.set_password('password123')
     user.save()
-    return Response({"status": "success", "message": f"Password for {user.username} reset to the default (password123)."})
+    profile = getattr(user, 'userprofile', None)
+    if profile:
+        profile.must_change_password = True
+        profile.save()
+    return Response({"status": "success", "message": f"Password for {user.username} reset to password123. They'll be asked to set a new one on next login."})
 
 
 @api_view(['GET'])

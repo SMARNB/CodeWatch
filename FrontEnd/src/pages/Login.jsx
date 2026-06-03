@@ -74,9 +74,7 @@ const Login = () => {
         // Notify App
         window.dispatchEvent(new Event('userDataUpdated'));
 
-        setToastMessage(`Welcome, ${data.userName}!`);
-
-        // First login on the default password? Force a password change.
+        // Does this account still need to set its own password?
         let mustChange = false;
         try {
           const statusRes = await fetch(`/api/password-status/?email=${encodeURIComponent(loginEmail)}`);
@@ -88,14 +86,16 @@ const Login = () => {
           console.error('Password status check failed:', statusErr);
         }
 
-        setTimeout(() => {
-          if (mustChange) {
-            navigate('/reset-password?mode=first');
-          } else {
+        if (mustChange) {
+          // Send them straight to set a new password — no welcome popup, no delay
+          navigate('/reset-password?mode=first');
+        } else {
+          setToastMessage(`Welcome, ${data.userName}!`);
+          setTimeout(() => {
             const targetRoute = dashboardRoutes[role] || '/dashboard';
             navigate(targetRoute);
-          }
-        }, 1000);
+          }, 1000);
+        }
       } else if (response.status === 401) {
         // Specific requirement for 401
         setError('Unauthorized: This email is not registered.');

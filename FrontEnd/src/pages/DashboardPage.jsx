@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
 import StatCard from '../components/StatCard';
 import PieChartContainer from '../components/PieChartContainer';
 import LineGraphContainer from '../components/LineGraphContainer';
@@ -9,6 +8,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import VideoThumbnails from '../components/VideoThumbnails';
 import { fetchAllDashboardData } from '../services/apiService';
 import Logo from '../components/Logo';
+import backgroundEllipse from '../assets/background.svg';
 
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
@@ -61,9 +61,11 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+      <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
+        <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
+          <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
+        </div>
+        <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)]">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-[#3f4299] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600">Loading dashboard data...</p>
@@ -75,9 +77,11 @@ const DashboardPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+      <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
+        <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
+          <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
+        </div>
+        <div className="relative flex items-center justify-center min-h-[calc(100vh-80px)]">
           <div className="text-center">
             <div className="text-red-500 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,12 +103,12 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation Bar */}
-      <Navbar />
-
+    <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
+      <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
+        <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
+      </div>
       {/* Main Dashboard Content */}
-      <div className=" w-full scale-x-85" style={{ zoom: 0.73, marginTop: "20px" }}>
+      <div className="relative w-full scale-x-85" style={{ zoom: 0.73, marginTop: "20px" }}>
 
         <div className="grid grid-cols-4 gap-4 mb-6 mt-[50px]">
           {statistics && (
@@ -164,7 +168,7 @@ const DashboardPage = () => {
             />
           </div>
         </div>
-        
+
         <div style={{ height: '40px' }}></div>
 
         {/* Video Section: Primary Player + Thumbnails */}
@@ -172,11 +176,11 @@ const DashboardPage = () => {
 
           {/* Top: Camera Selection/Thumbnail Scroller */}
           <div className="w-full mb-2">
-            <VideoThumbnails 
+            <VideoThumbnails
               selectedCameraId={currentCamera?.camera_id}
               onSelectCamera={(cam) => {
                 setCurrentCamera(cam);
-              }} 
+              }}
             />
           </div>
 

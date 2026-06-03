@@ -5,6 +5,7 @@ import UserProfileCard from '../components/UserProfileCard';
 import Button from '../components/Button';
 import Logo from '../components/Logo';
 import FeedbackModal from '../components/FeedbackModal';
+import ConfirmModal from '../components/ConfirmModal';
 import backgroundEllipse from '../assets/background.svg';
 
 const NotificationsPage = ({ userType: propUserType }) => {
@@ -58,9 +59,17 @@ const NotificationsPage = ({ userType: propUserType }) => {
     return matchesFilter && matchesSearch;
   });
 
-  const handleClear = async (mode) => {
-    const label = mode === 'read' ? 'all the notifications you have viewed' : 'all notifications';
-    if (!window.confirm(`Clear ${label} from your list? Other users are not affected.`)) return;
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, mode: null });
+
+  const handleClear = (mode) => {
+    setConfirmModal({ isOpen: true, mode });
+  };
+
+  const executeClear = async () => {
+    const { mode } = confirmModal;
+    setConfirmModal({ isOpen: false, mode: null });
+    if (!mode) return;
+
     try {
       const userKey = encodeURIComponent(localStorage.getItem('userEmail') || localStorage.getItem('userName') || '');
       const role = encodeURIComponent(localStorage.getItem('userType') || userType || '');
@@ -151,7 +160,7 @@ const NotificationsPage = ({ userType: propUserType }) => {
               </div>
             ) : (
               filteredNotifications.map((notification, index) => (
-                <div key={notification.id || index} className="mb-5">
+                <div key={notification.id || index} style={{ marginBottom: '16px' }}>
                   <NotificationItem
                     notification={notification}
                     onClick={() => handleNotificationClick(notification)}
@@ -191,6 +200,14 @@ const NotificationsPage = ({ userType: propUserType }) => {
       {showFeedbackModal && (
         <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, mode: null })}
+        onConfirm={executeClear}
+        title="Clear Notifications"
+        message={`Are you sure you want to clear ${confirmModal.mode === 'read' ? 'all viewed notifications' : 'all notifications'} from your list? Other users will not be affected.`}
+      />
     </div>
   );
 };

@@ -23,6 +23,7 @@ import GuardDashboardPage from './pages/GuardDashboardPage';
 import AddVisitorPage from './pages/AddVisitorPage';
 import VisitorListPage from './pages/VisitorListPage';
 import GuardLayout from './components/GuardLayout';
+import AppLayout from './components/AppLayout';
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -126,27 +127,34 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<PasswordResetPage />} />
 
-            <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
-            <Route path="/admin/notifications" element={<ProtectedRoute requiredRole="admin"><NotificationsPage userType="admin" /></ProtectedRoute>} />
-            <Route path="/ssd/notifications" element={<ProtectedRoute requiredRole="ssd"><NotificationsPage userType="ssd" /></ProtectedRoute>} />
-            <Route path="/department-head/dashboard" element={<ProtectedRoute requiredRole="department-head"><DashboardPage /></ProtectedRoute>} />
-            <Route path="/department-head/notifications" element={<ProtectedRoute requiredRole="department-head"><NotificationsPage userType="department-head" /></ProtectedRoute>} />
+            {/* Main app pages — share ONE persistent Navbar via AppLayout */}
+            <Route element={<AppLayout />}>
+              <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
+              <Route path="/department-head/dashboard" element={<ProtectedRoute requiredRole="department-head"><DashboardPage /></ProtectedRoute>} />
+              <Route path="/admin/manage-violations" element={<ProtectedRoute requiredRole="admin"><ManageViolationsPage /></ProtectedRoute>} />
+              <Route path="/admin/manage-blacklist" element={<ProtectedRoute requiredRole="admin"><ManageBlacklistPage /></ProtectedRoute>} />
+              <Route path="/admin/manage-cameras" element={<ProtectedRoute requiredRole="admin"><ManageCamerasPage /></ProtectedRoute>} />
+              <Route path="/admin/manage-people" element={<ProtectedRoute requiredRole="admin"><ManagePeoplePage /></ProtectedRoute>} />
+              <Route path="/admin/manage-users" element={<ProtectedRoute requiredRole="admin"><ManageUsersPage /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute><PreviousReportsPage /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><GenerateAnalyticsPage /></ProtectedRoute>} />
+            </Route>
+
+            {/* Guard pages — their own layout */}
             <Route element={<ProtectedRoute requiredRole="guard"><GuardLayout /></ProtectedRoute>}>
               <Route path="/guard/dashboard" element={<GuardDashboardPage />} />
               <Route path="/guard/add-visitor" element={<AddVisitorPage />} />
               <Route path="/guard/visitors" element={<VisitorListPage />} />
             </Route>
+
+            {/* Standalone / new-tab views — NO Navbar (they have their own close button) */}
+            <Route path="/admin/notifications" element={<ProtectedRoute requiredRole="admin"><NotificationsPage userType="admin" /></ProtectedRoute>} />
+            <Route path="/ssd/notifications" element={<ProtectedRoute requiredRole="ssd"><NotificationsPage userType="ssd" /></ProtectedRoute>} />
+            <Route path="/department-head/notifications" element={<ProtectedRoute requiredRole="department-head"><NotificationsPage userType="department-head" /></ProtectedRoute>} />
             <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
             <Route path="/notification-details" element={<ProtectedRoute><NotificationDetailsPage /></ProtectedRoute>} />
             <Route path="/add-camera" element={<ProtectedRoute><AddCameraPage /></ProtectedRoute>} />
-            <Route path="/admin/manage-violations" element={<ProtectedRoute requiredRole="admin"><ManageViolationsPage /></ProtectedRoute>} />
-            <Route path="/admin/manage-blacklist" element={<ProtectedRoute requiredRole="admin"><ManageBlacklistPage /></ProtectedRoute>} />
-            <Route path="/admin/manage-cameras" element={<ProtectedRoute requiredRole="admin"><ManageCamerasPage /></ProtectedRoute>} />
-            <Route path="/admin/manage-people" element={<ProtectedRoute requiredRole="admin"><ManagePeoplePage /></ProtectedRoute>} />
-            <Route path="/admin/manage-users" element={<ProtectedRoute requiredRole="admin"><ManageUsersPage /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><PreviousReportsPage /></ProtectedRoute>} />
             <Route path="/report-details" element={<ProtectedRoute><ReportDetailsPage /></ProtectedRoute>} />
-            <Route path="/analytics" element={<ProtectedRoute><GenerateAnalyticsPage /></ProtectedRoute>} />
             <Route path="/live-track/:personId" element={<ProtectedRoute><LiveTrackPage /></ProtectedRoute>} />
           </Routes>
         </div>

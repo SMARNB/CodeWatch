@@ -40,7 +40,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
         backgroundColor: 'rgba(121, 135, 255, 0.1)',
         fill: true,
         tension: 0.4,
-        pointRadius: 4, 
+        pointRadius: 4,
         pointHoverRadius: 6,
       },
       {
@@ -105,7 +105,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
           display: true, // Show X-axis labels (Jan, Feb, etc.)
           color: '#000000',
           font: {
-            size: 10,
+            size: 13,
             family: "'Inter', sans-serif",
           },
         },
@@ -118,14 +118,14 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
         beginAtZero: true,
         grid: {
           // Show horizontal grid lines to align with the data points
-          display: true, 
+          display: true,
           color: 'rgba(0, 0, 0, 0.1)', // Subtle grey color for grid lines
         },
         ticks: {
           display: true, // Show Y-axis labels (60, 40, 20, 0, -20, etc.)
           color: '#000000',
           font: {
-            size: 12,
+            size: 14,
             family: "'Inter', sans-serif",
           },
           callback: function (value) {
@@ -168,35 +168,20 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
 
   return (
     // Applied custom padding-left: pl-10 (10px)
-    <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-6 pl-10 box-border hover:shadow-md transition-shadow duration-200 ease-in-out">
+    <div className="relative w-full bg-white border border-neutral-300 rounded-lg p-8 pl-12 box-border hover:shadow-md transition-shadow duration-200 ease-in-out" style={{ paddingLeft: '22px', paddingRight: '22px' }}>
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 mb-4">
-        <div className="w-24">
-          <p className="text-base font-medium text-black leading-normal whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            Violations
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2.5">
-          <div className="h-[18px] w-[61px] flex items-center justify-end">
-            <p className="text-xs font-medium text-black text-right whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              {data.period || 'This Week'}
-            </p>
-          </div>
-          {/* Dropdown Icon */}
-          <div className="bg-white relative w-6 h-6 flex items-center justify-center">
-            <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0 0L4 4L8 0H0Z" fill="#000000" />
-            </svg>
-          </div>
-        </div>
+      <div className="flex items-center justify-center pb-2 mb-4" style={{ marginTop: '20px' }}>
+        <p className="text-2xl font-bold text-black leading-normal whitespace-nowrap text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          Violations Trend
+        </p>
       </div>
 
       {/* Main Value */}
       <div className="flex items-center gap-2.5 h-12 mb-2.5">
-        <p className="text-[32px] font-normal text-[#165baa] leading-normal tracking-[-1.2px] whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <p className="text-[40px] font-semibold text-[#165baa] leading-none tracking-[-1.5px] whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
           {formatViolationCount(data.violationCount || 0)}
         </p>
-        <span className="text-base font-normal text-black leading-normal whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <span className="text-xl font-medium text-black leading-normal whitespace-nowrap" style={{ fontFamily: "'Poppins', sans-serif" }}>
           Violations
         </span>
       </div>
@@ -213,12 +198,12 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-col gap-2.5 pt-6">
+        <div className="flex flex-col gap-2.5 pt-8">
           <div className="flex flex-wrap gap-x-4 gap-y-2 items-center pb-2 pr-2.5">
             {data.datasets?.map((dataset, index) => {
               const colors = ['#7987FF', '#E697FF', '#FFA5CB'];
               const color = dataset.borderColor || colors[index] || '#7987FF';
-              
+
               return (
                 <div key={index} className="bg-white flex items-center px-0 py-px">
                   <div className="bg-white relative w-4 h-4 flex items-center justify-center shrink-0">
@@ -228,7 +213,7 @@ const ViolationTrendChart = ({ trendData, isLoading = false }) => {
                     />
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <p className="text-xs font-medium text-black whitespace-nowrap leading-normal" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    <p className="text-base font-medium text-black whitespace-nowrap leading-normal" style={{ fontFamily: "'Poppins', sans-serif" }}>
                       {dataset.label || `Content ${index + 1}`}
                     </p>
                   </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import UserProfileCard from '../components/UserProfileCard';
 import Logo from '../components/Logo';
+import ConfirmModal from '../components/ConfirmModal';
 import backgroundEllipse from '../assets/background.svg';
 
 const ManageBlacklistPage = () => {
@@ -17,6 +17,10 @@ const ManageBlacklistPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+
+  // Confirm Modal state for deletion
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState(null);
 
   useEffect(() => {
     const userType = localStorage.getItem('userType') || 'admin';
@@ -66,19 +70,26 @@ const ManageBlacklistPage = () => {
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  const handleRemove = async (id, name) => {
-    if (window.confirm(`Are you sure you want to remove ${name} from the blacklist?`)) {
-      try {
-        const res = await fetch(`/api/blacklist/${id}/`, { method: 'DELETE' });
-        if (res.ok) {
-          showToast(`Successfully removed ${name} from blacklist`);
-          fetchBlacklist();
-        } else {
-          showToast("Failed to remove from blacklist");
-        }
-      } catch (err) {
-        showToast("Error occurred while deleting");
+  const handleRemoveClick = (id, name) => {
+    setEntryToDelete({ id, name });
+    setIsConfirmModalOpen(true);
+  };
+
+  const executeRemove = async () => {
+    if (!entryToDelete) return;
+    try {
+      const res = await fetch(`/api/blacklist/${entryToDelete.id}/`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast(`Successfully removed ${entryToDelete.name} from blacklist`);
+        fetchBlacklist();
+      } else {
+        showToast("Failed to remove from blacklist");
       }
+    } catch (err) {
+      showToast("Error occurred while deleting");
+    } finally {
+      setIsConfirmModalOpen(false);
+      setEntryToDelete(null);
     }
   };
 
@@ -99,70 +110,50 @@ const ManageBlacklistPage = () => {
         <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
       </div>
 
-      {/* Navbar */}
-      <div className="relative bg-white shadow-sm border-b border-gray-200 w-full h-[100px]">
-        <div className="w-full px-4 sm:px-6 lg:px-8 h-full flex justify-between items-center">
-          <div className="flex items-center" style={{ marginLeft: '50px' }}>
-            <Logo size="default" showText={false} />
-          </div>
-          <div className="flex-1 flex justify-center">
-            <h1 className="text-2xl font-bold text-[#3f4299]">Code Watch</h1>
-          </div>
-          <div className="w-16"></div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="relative w-full pb-12 flex gap-8" style={{ paddingLeft: '64px', paddingRight: '64px', marginTop: '100px' }}>
         <div className="flex-1">
 
-          {/* Header */}
-          <div className="flex items-center justify-between" style={{ marginBottom: '30px' }}>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(-1)}
-                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-[#3f4299] hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <h2 className="text-3xl font-bold text-[#3f4299]">Blacklist Management</h2>
-            </div>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="bg-red-600 text-white font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-colors flex items-center gap-2"
-              style={{ padding: '5px' }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Add to Blacklist
-            </button>
-          </div>
-
-          {/* Stats Bar */}
-          <div className="grid grid-cols-3 gap-4 w-full" style={{ marginBottom: '30px' }}>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center">
-              <div className="text-gray-500 text-sm font-semibold mb-1">Total Blacklisted</div>
+          {/* Stats Bar & Header */}
+          <div className="grid gap-[31px] w-full" style={{ gridTemplateColumns: '1fr 1fr 1fr 290px', marginBottom: '30px' }}>
+            <div className="bg-white py-8 px-4 rounded-xl shadow-sm border border-gray-200 text-center flex flex-col justify-center min-h-[130px]">
+              <div className="text-gray-500 text-[21px] font-bold mb-1">Total Blacklisted</div>
               <div className="text-3xl font-bold text-gray-900">{totalBlacklisted}</div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center">
-              <div className="text-gray-500 text-sm font-semibold mb-1">Auto-Blacklisted</div>
+            <div className="bg-white py-8 px-4 rounded-xl shadow-sm border border-gray-200 text-center flex flex-col justify-center min-h-[130px]">
+              <div className="text-gray-500 text-[21px] font-bold mb-1">Auto-Blacklisted</div>
               <div className="text-3xl font-bold text-orange-600">{autoBlacklisted}</div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center">
-              <div className="text-gray-500 text-sm font-semibold mb-1">Manually Blacklisted</div>
+            <div className="bg-white py-8 px-4 rounded-xl shadow-sm border border-gray-200 text-center flex flex-col justify-center min-h-[130px]">
+              <div className="text-gray-500 text-[21px] font-bold mb-1">Manually Blacklisted</div>
               <div className="text-3xl font-bold text-red-600">{manualBlacklisted}</div>
+            </div>
+            <div className="flex flex-col justify-center items-end">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-[200px] h-[48px] bg-red-600 text-white text-[16px] font-bold rounded-[8px] hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
+                style={{ fontFamily: "'Open Sans', sans-serif" }}
+              >
+                + Add to Blacklist
+              </button>
             </div>
           </div>
 
           {/* Search Bar */}
-          <div className="flex flex-wrap items-center gap-4 w-full" style={{ marginBottom: '30px' }}>
-            <input
-              type="text"
-              placeholder="Search by name or employee ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px' }}
-            />
+          <div className="grid gap-[31px] w-full" style={{ gridTemplateColumns: '1fr 1fr 1fr 290px', marginBottom: '30px' }}>
+            <div className="col-span-1">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#bab6b6] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  type="text"
+                  placeholder="Search by name or employee ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+                  style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', paddingLeft: '36px' }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Table */}
@@ -214,7 +205,7 @@ const ManageBlacklistPage = () => {
                           <button onClick={() => { setSelectedEntry(entry); setIsEditModalOpen(true); }} className="text-gray-400 hover:text-blue-600" title="Edit">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
-                          <button onClick={() => handleRemove(entry.id, entry.person_name)} className="text-gray-400 hover:text-red-600" title="Remove">
+                          <button onClick={() => handleRemoveClick(entry.id, entry.person_name)} className="text-gray-400 hover:text-red-600" title="Remove">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
@@ -227,11 +218,7 @@ const ManageBlacklistPage = () => {
           )}
         </div>
 
-        <div className="w-80 flex-shrink-0">
-          <div className="sticky top-8">
-            {user && <UserProfileCard user={user} />}
-          </div>
-        </div>
+
       </div>
 
       {/* Toast Notification */}
@@ -245,6 +232,16 @@ const ManageBlacklistPage = () => {
       <AddBlacklistModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={() => { setIsAddModalOpen(false); fetchBlacklist(); showToast("Added to blacklist successfully"); }} currentBlacklistIds={blacklist.map(e => e.person_id)} />
       <EditBlacklistModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} entry={selectedEntry} onEdit={() => { setIsEditModalOpen(false); fetchBlacklist(); showToast("Blacklist updated"); }} />
       <ViewProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} entry={selectedEntry} navigate={navigate} />
+      
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={executeRemove}
+        title="Remove from Blacklist"
+        message={`Are you sure you want to remove ${entryToDelete?.name} from the blacklist?`}
+        confirmText="Remove"
+        isDanger={true}
+      />
     </div>
   );
 };
@@ -300,40 +297,75 @@ const AddBlacklistModal = ({ isOpen, onClose, onAdd, currentBlacklistIds }) => {
         <form onSubmit={handleSubmit}>
           {!selectedPerson ? (
             <div className="mb-4">
-              <label className="block text-m font-semibold text-gray-700 mb-1" style={{ marginBottom: "5px" }}>Search Person</label>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Type name or ID..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]" style={{ marginBottom: "10px", padding: "5px" }} />
+              <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>Search Person</label>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#bab6b6] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Type name or ID..."
+                  className="w-full h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+                  style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', paddingLeft: '36px', marginBottom: '10px' }}
+                />
+              </div>
               {results.length > 0 && (
-                <div className="mt-2 border rounded-lg max-h-48 overflow-y-auto">
+                <div className="mt-2 border border-[#bab6b6] rounded-[8px] max-h-48 overflow-y-auto shadow-sm">
                   {results.map(p => (
-                    <div key={p.id} onClick={() => setSelectedPerson(p)} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between border-b last:border-b-0">
-                      <div><div className="font-semibold text-sm">{p.name}</div><div className="text-xs text-gray-500">{p.employee_id} • {p.department}</div></div>
-                      <button type="button" className="text-xs text-[#3f4299] font-bold">Select</button>
+                    <div key={p.id} onClick={() => setSelectedPerson(p)} className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center border-b border-gray-100 last:border-b-0 transition-colors">
+                      <div>
+                        <div className="text-[14px] font-semibold text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>{p.name}</div>
+                        <div className="text-[12px] text-gray-500" style={{ fontFamily: "'Open Sans', sans-serif" }}>{p.employee_id} • {p.department}</div>
+                      </div>
+                      <button type="button" className="text-[12px] text-[#3f4299] font-bold hover:text-[#2d3170] transition-colors" style={{ fontFamily: "'Open Sans', sans-serif" }}>Select</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           ) : (
-            <div className="mb-4 bg-gray-50 p-4 rounded-lg flex justify-between items-center border">
+            <div className="mb-4 bg-gray-50 px-4 py-3 rounded-[8px] flex justify-between items-center border border-[#bab6b6]">
               <div>
-                <div className="font-bold text-gray-900">{selectedPerson.name}</div>
-                <div className="text-xs text-gray-500">{selectedPerson.employee_id}</div>
+                <div className="text-[14px] font-semibold text-gray-900" style={{ fontFamily: "'Open Sans', sans-serif" }}>{selectedPerson.name}</div>
+                <div className="text-[12px] text-gray-500" style={{ fontFamily: "'Open Sans', sans-serif" }}>{selectedPerson.employee_id}</div>
               </div>
-              <button type="button" onClick={() => setSelectedPerson(null)} className="text-sm text-gray-500 underline">Change</button>
+              <button type="button" onClick={() => setSelectedPerson(null)} className="text-[13px] text-[#3f4299] font-semibold hover:text-[#2d3170] transition-colors" style={{ fontFamily: "'Open Sans', sans-serif" }}>Change</button>
             </div>
           )}
 
           <div className="mb-4">
-            <label className="block text-m font-semibold text-gray-700 mb-1" style={{ marginBottom: "5px" }}>Reason for Blacklisting</label>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} required rows="3" className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]" style={{ marginBottom: "10px", padding: "5px" }}></textarea>
+            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>Reason for Blacklisting</label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              required
+              rows="3"
+              className="w-full border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors placeholder:text-[#bab6b6] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299] resize-none"
+              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '10px' }}
+            />
           </div>
           <div className="mb-4">
-            <label className="block text-m font-semibold text-gray-700 mb-1" style={{ marginBottom: "5px" }}>Violation Threshold</label>
-            <input type="number" min="1" value={threshold} onChange={e => setThreshold(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]" style={{ marginBottom: "20px", padding: "5px" }} />
+            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>Violation Threshold</label>
+            <input
+              type="number"
+              min="1"
+              value={threshold}
+              onChange={e => setThreshold(e.target.value)}
+              required
+              className="w-full h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
+              style={{ fontFamily: "'Open Sans', sans-serif", padding: '10px', marginBottom: '20px' }}
+            />
           </div>
 
           <div className="flex flex-col gap-3 pt-4">
-            <button type="submit" disabled={!selectedPerson || !reason || loading} className="btn btn-primary btn-default text-white font-bold rounded-lg min-w-[100px]">Confirm Blacklist</button>
+            <button
+              type="submit"
+              disabled={!selectedPerson || !reason || loading}
+              className="w-full h-[48px] bg-[#3f4299] text-white text-[14px] font-bold rounded-[8px] hover:bg-[#2d3170] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontFamily: "'Open Sans', sans-serif" }}
+            >
+              {loading ? 'Processing...' : 'Confirm Blacklist'}
+            </button>
           </div>
         </form>
       </div>

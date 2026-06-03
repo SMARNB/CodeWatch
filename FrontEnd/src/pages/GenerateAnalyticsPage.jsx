@@ -1,12 +1,39 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import VideoThumbnails from '../components/VideoThumbnails';
 import StatCard from '../components/StatCard';
 import PieChartContainer from '../components/PieChartContainer';
 import LineGraphContainer from '../components/LineGraphContainer';
 import ViolationTimeline from '../components/ViolationTimeline';
-import './GenerateAnalyticsPage.css';
+import backgroundEllipse from '../assets/background.svg';
+import '../components/CustomCSS/GenerateAnalyticsPage.css';
+
+const formatOptionText = (text) => {
+  if (!text) return '';
+  return text.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+// Custom Input for DatePicker to match Dropdown styling
+const CustomDateInput = forwardRef(({ value, onClick, placeholder, isActive }, ref) => (
+  <button
+    onClick={onClick}
+    ref={ref}
+    type="button"
+    className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${
+      isActive
+        ? 'border-[#3f4299]/50 shadow-sm text-[#3f4299] font-medium'
+        : 'border-[#bab6b6] hover:border-[#3f4299]/50 text-gray-700'
+    }`}
+    style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px', minWidth: '160px' }}
+  >
+    <span>{value || placeholder}</span>
+    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  </button>
+));
 
 const GenerateAnalyticsPage = () => {
   const location = useLocation();
@@ -21,8 +48,8 @@ const GenerateAnalyticsPage = () => {
   const [selectedGender, setSelectedGender] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState([]);
   const [selectedUserType, setSelectedUserType] = useState([]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   // Chart data states
   const [pieChartData, setPieChartData] = useState(null);
@@ -110,7 +137,6 @@ const GenerateAnalyticsPage = () => {
   };
 
   // Generate analytics data based on filters
-  // --- REPLACEMENT 1: GENERATE DATA FROM REAL COUNTS ---
   const generateAnalyticsData = (realCounts) => {
     const nonViolators = realCounts.nonViolators || 0;
     const violators = realCounts.violators || 0;
@@ -174,8 +200,8 @@ const GenerateAnalyticsPage = () => {
 
     // Add date range if provided
     if (filters.startDate || filters.endDate) {
-      const start = filters.startDate ? new Date(filters.startDate).toLocaleDateString() : 'All Time';
-      const end = filters.endDate ? new Date(filters.endDate).toLocaleDateString() : 'Present';
+      const start = filters.startDate ? filters.startDate : 'All Time';
+      const end = filters.endDate ? filters.endDate : 'Present';
       parts.push(`Date Range: ${start} - ${end}`);
     }
 
@@ -191,7 +217,7 @@ const GenerateAnalyticsPage = () => {
 
     // Add user type filters
     if (filters.userType && filters.userType.length > 0) {
-      parts.push(`User Type: ${filters.userType.join(', ')}`);
+      parts.push(`User Type: ${filters.userType.map(formatOptionText).join(', ')}`);
     }
 
     // Add summary statistics
@@ -213,29 +239,18 @@ const GenerateAnalyticsPage = () => {
   // Save report to localStorage
   const saveReport = (report) => {
     try {
-      // Get existing reports from localStorage
       const existingReportsJson = localStorage.getItem('analyticsReports');
       const existingReports = existingReportsJson ? JSON.parse(existingReportsJson) : [];
-
-      // Add new report at the beginning (most recent first)
       const updatedReports = [report, ...existingReports];
-
-      // Save back to localStorage
       localStorage.setItem('analyticsReports', JSON.stringify(updatedReports));
-
-      // Trigger storage event for other tabs/windows
       window.dispatchEvent(new Event('storage'));
-      // Trigger custom event for same-tab updates
       window.dispatchEvent(new Event('reportsUpdated'));
-
-      console.log('Report saved:', report.id);
     } catch (error) {
       console.error('Error saving report to localStorage:', error);
     }
   };
 
   // Handle Generate Analytics
-  // --- REPLACEMENT: FETCH DATA & AUTO-SAVE TO DB ---
   const handleGenerateAnalytics = async () => {
     setIsLoading(true);
     setHasGenerated(false);
@@ -245,8 +260,8 @@ const GenerateAnalyticsPage = () => {
       gender: selectedGender,
       department: selectedDepartment,
       userType: selectedUserType,
-      startDate: startDate,
-      endDate: endDate
+      startDate: startDate ? startDate.toISOString().split('T')[0] : '',
+      endDate: endDate ? endDate.toISOString().split('T')[0] : ''
     };
 
     try {
@@ -274,8 +289,7 @@ const GenerateAnalyticsPage = () => {
       setTimelineData(analyticsData.timelineData);
       setHasGenerated(true);
 
-      // 4. AUTO-SAVE TO DATABASE (The Missing Link)
-      // We create a text summary of the charts to store in the "Previous Reports" table
+      // 4. AUTO-SAVE TO DATABASE
       const summaryMessage = `
 Analytics Generated on ${new Date().toLocaleString()}
 ------------------------------------------------
@@ -290,7 +304,6 @@ Statistics Summary:
 • Visitors: ${analyticsData.statCardsData[3].value}
       `.trim();
 
-      // Use the existing 'send-report' API to save this record
       await fetch('/api/send-report/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,7 +314,6 @@ Statistics Summary:
           priority: 'Low',
           message: summaryMessage,
           personId: (includeMovementHistory && personInfo) ? personInfo.id : null,
-          // ADD THIS LINE BELOW:
           analytics_json: JSON.stringify(analyticsData)
         })
       });
@@ -329,106 +341,96 @@ Statistics Summary:
     return (
       <div
         ref={menuRef}
-        className="absolute bg-white rounded-[12px] shadow-xl z-50 max-h-[400px] overflow-hidden border border-gray-100"
+        className="absolute bg-white rounded-[8px] z-50 max-h-[400px] flex flex-col border border-gray-200"
         style={{
           top: '100%',
           left: 0,
-          width: '100%',
+          minWidth: '100%',
+          width: 'max-content',
           marginTop: '4px',
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          fontFamily: "'Open Sans', sans-serif"
         }}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#3f4299] to-[#5a5fb8] px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              {title.replace('-Options', '')}
+        <div className="bg-white flex items-center justify-between border-b border-gray-100 rounded-t-[8px]" style={{ padding: '10px', gap: '16px' }}>
+          <div className="flex flex-col">
+            <h3 className="text-[16px] font-bold text-[#3f4299] whitespace-nowrap">
+              {formatOptionText(title.replace('-Options', ''))}
             </h3>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectAll();
-              }}
-              className="text-xs text-white hover:text-gray-100 font-medium px-2 py-1 rounded-md hover:bg-white/20 transition-colors"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-            >
-              {allSelected ? 'Deselect All' : 'Select All'}
-            </button>
+            {someSelected && (
+              <p className="text-[12px] text-gray-500 font-medium whitespace-nowrap">
+                {selected.length} of {options.length} selected
+              </p>
+            )}
           </div>
-          {someSelected && (
-            <p className="text-xs text-white/90 mt-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              {selected.length} of {options.length} selected
-            </p>
-          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectAll();
+            }}
+            className="text-[14px] font-bold text-[#3f4299] hover:text-[#2d3170] hover:bg-gray-50 px-2 py-1 rounded transition-colors focus:outline-none whitespace-nowrap"
+          >
+            {allSelected ? 'Deselect All' : 'Select All'}
+          </button>
         </div>
 
-        {/* Options List */}
-        <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
-          <div className="py-2">
-            {options.map((option, index) => {
-              const isSelected = selected.includes(option);
-              return (
-                <label
-                  key={option}
-                  className={`flex items-center px-4 py-2.5 cursor-pointer transition-all duration-150 ${isSelected
-                      ? 'bg-[#3f4299]/5 hover:bg-[#3f4299]/10'
-                      : 'hover:bg-gray-50'
-                    }`}
-                  style={{ fontFamily: "'Open Sans', sans-serif" }}
-                >
-                  {/* Custom Checkbox */}
-                  <div className="relative flex items-center justify-center flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onToggle(option)}
-                      className="sr-only"
-                    />
-                    <div
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${isSelected
-                          ? 'bg-[#3f4299] border-[#3f4299]'
-                          : 'border-gray-300 bg-white hover:border-[#3f4299]/50'
-                        }`}
-                    >
-                      {isSelected && (
-                        <svg
-                          className="w-3.5 h-3.5 text-white"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="3"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Option Text */}
-                  <span
-                    className={`ml-3 text-sm flex-1 ${isSelected ? 'text-[#3f4299] font-medium' : 'text-gray-700'
+        <div className="max-h-[320px] overflow-y-auto custom-scrollbar bg-white">
+          {options.map((option) => {
+            const isSelected = selected.includes(option);
+            return (
+              <label
+                key={option}
+                className={`flex items-center cursor-pointer transition-colors border-b border-gray-100 ${isSelected
+                  ? 'bg-[#f8f9ff] hover:bg-gray-50'
+                  : 'hover:bg-gray-50 bg-white'
+                  }`}
+                style={{ padding: '10px' }}
+              >
+                <div className="relative flex items-center justify-center flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggle(option)}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-[18px] h-[18px] rounded flex items-center justify-center transition-colors ${isSelected
+                      ? 'bg-[#3f4299]'
+                      : 'border border-gray-300 bg-white'
                       }`}
-                    style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    {option}
-                  </span>
-
-                  {/* Selected Indicator Dot */}
-                  {isSelected && (
-                    <div className="w-2 h-2 rounded-full bg-[#3f4299] flex-shrink-0 ml-2" />
-                  )}
-                </label>
-              );
-            })}
-          </div>
+                    {isSelected && (
+                      <svg
+                        className="w-3.5 h-3.5 text-white"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="3"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`flex-1 ${isSelected ? 'text-[#3f4299] font-bold' : 'text-gray-700 font-medium'
+                    }`}
+                  style={{ marginLeft: '12px', fontSize: '14px' }}
+                >
+                  {formatOptionText(option)}
+                </span>
+                {isSelected && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#3f4299] flex-shrink-0 ml-2" />
+                )}
+              </label>
+            );
+          })}
         </div>
-
-        {/* Footer (if needed) */}
         {selected.length > 0 && (
-          <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/50">
-            <p className="text-xs text-gray-600 text-center" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+          <div className="bg-gray-50 border-t border-gray-100 rounded-b-[8px]" style={{ padding: '10px' }}>
+            <p className="text-[12px] text-gray-600 text-center font-bold">
               {selected.length} item{selected.length !== 1 ? 's' : ''} selected
             </p>
           </div>
@@ -438,10 +440,10 @@ Statistics Summary:
   };
 
   return (
-    <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* Navigation Bar */}
-      <Navbar />
-
+    <div className="min-h-screen bg-[#f2f3ff] relative overflow-hidden">
+      <div className="absolute h-[1198px] left-1/2 top-[599px] translate-x-[-50%] w-[2040px]">
+        <img alt="" className="block max-w-none size-full" src={backgroundEllipse} />
+      </div>
       {/* Main Content */}
       <div className="relative w-full" style={{ paddingTop: '100px', paddingLeft: '100px', paddingRight: '100px' }}>
         {/* Video Thumbnails Section */}
@@ -450,7 +452,7 @@ Statistics Summary:
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-white rounded-[8px] p-4 mb-6" style={{ marginBottom: '20px' }}>
+        <div className="mb-6" style={{ marginBottom: '20px' }}>
           <div className="flex flex-wrap items-center gap-4">
             {/* Select Gender Dropdown */}
             <div className="relative" ref={genderRef} style={{ width: '200px' }}>
@@ -461,10 +463,10 @@ Statistics Summary:
                   setIsUserTypeOpen(false);
                 }}
                 className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${isGenderOpen
-                    ? 'border-[#3f4299] shadow-md'
-                    : selectedGender.length > 0
-                      ? 'border-[#3f4299]/50 shadow-sm'
-                      : 'border-[#bab6b6] hover:border-[#3f4299]/50'
+                  ? 'border-[#3f4299] shadow-md'
+                  : selectedGender.length > 0
+                    ? 'border-[#3f4299]/50 shadow-sm'
+                    : 'border-[#bab6b6] hover:border-[#3f4299]/50'
                   }`}
                 style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
               >
@@ -507,10 +509,10 @@ Statistics Summary:
                   setIsUserTypeOpen(false);
                 }}
                 className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${isDepartmentOpen
-                    ? 'border-[#3f4299] shadow-md'
-                    : selectedDepartment.length > 0
-                      ? 'border-[#3f4299]/50 shadow-sm'
-                      : 'border-[#bab6b6] hover:border-[#3f4299]/50'
+                  ? 'border-[#3f4299] shadow-md'
+                  : selectedDepartment.length > 0
+                    ? 'border-[#3f4299]/50 shadow-sm'
+                    : 'border-[#bab6b6] hover:border-[#3f4299]/50'
                   }`}
                 style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
               >
@@ -553,10 +555,10 @@ Statistics Summary:
                   setIsDepartmentOpen(false);
                 }}
                 className={`h-[48px] border-2 rounded-[8px] text-[14px] bg-white outline-none transition-all duration-200 flex items-center justify-between w-full ${isUserTypeOpen
-                    ? 'border-[#3f4299] shadow-md'
-                    : selectedUserType.length > 0
-                      ? 'border-[#3f4299]/50 shadow-sm'
-                      : 'border-[#bab6b6] hover:border-[#3f4299]/50'
+                  ? 'border-[#3f4299] shadow-md'
+                  : selectedUserType.length > 0
+                    ? 'border-[#3f4299]/50 shadow-sm'
+                    : 'border-[#bab6b6] hover:border-[#3f4299]/50'
                   }`}
                 style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
               >
@@ -591,23 +593,21 @@ Statistics Summary:
             </div>
 
             {/* Start Date Picker */}
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors hover:border-[#3f4299] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-              style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
-              placeholder="Start Date"
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => setStartDate(date)}
+              customInput={<CustomDateInput isActive={!!startDate} />}
+              placeholderText="Start Date"
+              dateFormat="MM/dd/yyyy"
             />
 
             {/* End Date Picker */}
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-[48px] border border-[#bab6b6] rounded-[8px] text-[14px] text-black bg-white outline-none transition-colors hover:border-[#3f4299] focus:ring-2 focus:ring-[#3f4299] focus:border-[#3f4299]"
-              style={{ fontFamily: "'Open Sans', sans-serif", paddingLeft: '10px', paddingRight: '16px' }}
-              placeholder="End Date"
+            <DatePicker
+              selected={endDate}
+              onChange={(date) => setEndDate(date)}
+              customInput={<CustomDateInput isActive={!!endDate} />}
+              placeholderText="End Date"
+              dateFormat="MM/dd/yyyy"
             />
 
             {/* Select All Button */}
@@ -622,7 +622,7 @@ Statistics Summary:
             >
               Select All
             </button>
-            
+
             {/* Include Movement History Checkbox */}
             {personInfo && (
               <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
@@ -641,8 +641,8 @@ Statistics Summary:
               onClick={handleGenerateAnalytics}
               disabled={isLoading}
               className={`h-[48px] rounded-[8px] text-[14px] font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#3f4299] focus:ring-offset-2 ${isLoading
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-[#3f4299] text-white hover:bg-[#2d3170]'
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-[#3f4299] text-white hover:bg-[#2d3170]'
                 }`}
               style={{ fontFamily: "'Open Sans', sans-serif", minWidth: '240px', width: '240px' }}
             >
