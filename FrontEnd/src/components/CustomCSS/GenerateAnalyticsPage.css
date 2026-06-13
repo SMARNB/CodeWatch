@@ -1,0 +1,107 @@
+/* Custom Scrollbar Styling for Dropdown Menus */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+/* --- Custom React Datepicker Styling --- */
+.react-datepicker {
+  font-family: 'Open Sans', sans-serif !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden;
+  border: none !important; /* Clean border since we have shadow */
+}
+
+/* The popup wrapper container */
+.react-datepicker-popper {
+  z-index: 60 !important; /* Ensure it stays above other elements */
+}
+
+/* Hide the little triangle arrow on top for a cleaner modal look */
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+/* Header Section (Month/Year and Days of Week) */
+.react-datepicker__header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  padding-top: 12px !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+}
+
+/* Month and Year Text */
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
+  color: #3f4299 !important;
+  font-weight: 700 !important;
+  font-size: 1.1rem !important;
+  margin-bottom: 4px;
+}
+
+/* Day of Week Text (Su, Mo, Tu, etc.) */
+.react-datepicker__day-name {
+  color: #6b7280 !important;
+  font-weight: 600 !important;
+  width: 2rem !important;
+  margin: 0.2rem !important;
+}
+
+/* Individual Date Numbers */
+.react-datepicker__day {
+  color: #374151 !important;
+  border-radius: 6px !important;
+  width: 2rem !important;
+  line-height: 2rem !important;
+  margin: 0.2rem !important;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover State for Dates */
+.react-datepicker__day:hover {
+  background-color: #f8f9ff !important;
+  color: #3f4299 !important;
+}
+
+/* Selected Date State */
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range {
+  background-color: #3f4299 !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
+  border-radius: 6px !important;
+}
+
+/* Left and Right Navigation Arrows */
+.react-datepicker__navigation-icon::before {
+  border-color: #9ca3af !important;
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: #3f4299 !important;
+}

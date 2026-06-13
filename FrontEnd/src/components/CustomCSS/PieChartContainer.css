@@ -1,0 +1,32 @@
+/* PieChartContainer Custom Styles */
+/* Additional custom styles for PieChartContainer component */
+/* Most styling is handled by Tailwind CSS classes in the component */
+
+/* Chart.js canvas styling overrides */
+.pie-chart-container canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Responsive Design Overrides */
+@media (max-width: 768px) {
+  /* Mobile-specific adjustments if needed */
+  .pie-chart-mobile {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Small mobile adjustments */
+  .pie-chart-sm-mobile {
+    min-height: 300px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .pie-chart-print {
+    break-inside: avoid;
+  }
+}
+

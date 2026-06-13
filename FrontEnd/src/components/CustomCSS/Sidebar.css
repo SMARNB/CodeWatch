@@ -1,0 +1,85 @@
+/* Sidebar Container */
+.sidebar-container {
+    position: fixed;
+    top: 50;
+    right: 0;
+    height: 100vh;
+    width: 300px;
+    background-color: #1f2937;
+    color: white;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+     transition: transform 0.3s ease-in-out; 
+  }
+  
+  /* Hide Sidebar When Closed */
+  .sidebar-container {
+    transform: translateX(100%);
+}
+
+
+  
+  /* Sidebar Open */
+  .sidebar-container.open {
+    transform: translateZ(0);
+  }
+  
+  /* Sidebar Header */
+  .sidebar-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: #374151;
+    border-bottom: 1px solid #4b5563;
+    position: relative;
+  }
+  
+  /* Profile Picture */
+  .profile-pic {
+    margin-top: 50px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid white;
+    object-fit: cover;
+  }
+  
+  /* Close Icon */
+  .close-icon {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-size: 20px;
+    cursor: pointer;
+    color: white;
+    transition: color 0.2s;
+  }
+  
+  .close-icon:hover {
+    color: #f87171;
+  }
+  
+  /* Sidebar Menu */
+  .sidebar-menu {
+    list-style: none;
+    padding: 20px;
+  }
+  
+  .sidebar-item {
+    padding: 15px;
+    text-align: center;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+  }
+  
+  .sidebar-item:hover {
+    background: #4b5563;
+  }
+  
+  .logout {
+    color: red;
+    font-weight: bold;
+  }
+  

@@ -1,0 +1,949 @@
+import cv2
+import time
+import numpy as np
+import requests
+import json
+import os
+import threading
+import base64
+import redis
+import glob
+import traceback
+from collections import defaultdict, deque
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from insightface.app import FaceAnalysis
+from ultralytics import YOLO
+
+# RTSP/NVR streams: force TCP transport so they don't tear or drop on packet loss.
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+
+# --- CONFIGURATION ---
+PARAMS = {
+    "conf_threshold": 0.5,
+    "similarity_threshold": 0.5,
+    "log_interval": 30,
+    "unknown_time_threshold": 3.0, # seconds before logging unknown
+    "violation_cooldown": 30.0 # seconds before logging same unknown again
+}
+
+OUTPUT_DIR = r"C:\Users\alira\OneDrive\Documents\FYP\FrontEnd\public"
+API_BASE_URL = "http://127.0.0.1:8000/api"
+GET_EMBEDDINGS_URL = f"{API_BASE_URL}/get-embeddings/"
+LOG_VIOLATION_URL = f"{API_BASE_URL}/log-violation/"
+GET_CAMERAS_URL = f"{API_BASE_URL}/cameras/"
+GET_BLACKLIST_URL = f"{API_BASE_URL}/blacklist/"
+LOG_MOVEMENT_URL = f"{API_BASE_URL}/movement-log/"
+CAMERA_HEARTBEAT_URL = f"{API_BASE_URL}/camera-heartbeat/"
+REGISTER_UNKNOWN_URL = f"{API_BASE_URL}/register-unknown/"
+
+# --- Service authentication ---------------------------------------------------------------
+# The API requires authentication. FinalSystem authenticates as the dedicated 'codewatch-service'
+# account via its DRF token (created by setup_service_token.py, stored in BackEnd/.env).
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+except Exception:
+    pass
+SERVICE_API_TOKEN = os.environ.get('SERVICE_API_TOKEN', '')
+SERVICE_HEADERS = {"Authorization": f"Token {SERVICE_API_TOKEN}"} if SERVICE_API_TOKEN else {}
+if not SERVICE_API_TOKEN:
+    print("⚠️  SERVICE_API_TOKEN not set — run 'python setup_service_token.py'. API calls will be rejected (401).")
+
+# Redis Connection
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
+# Global State
+global_registry = [] # List of {'id': int, 'name': str, 'embedding': np.array}
+global_blacklist = set() # Set of DB IDs that are blacklisted
+
+# Thread Locks
+insightface_lock = threading.Lock()
+state_lock = threading.Lock()
+
+# Violation cooldown state
+violation_last_logged = {} # key: (camera_id, track_id), val: timestamp
+
+# Tracking & Highlighting State
+highlight_person_id = None
+camera_active_persons = {} # {camera_id: {person_id: last_seen_timestamp}}
+
+# --- SETUP MODELS ---
+print("🧠 Loading Global AI Models... (YOLO + InsightFace)")
+try:
+    yolo_model_base = YOLO("yolo26n-seg.pt") 
+except Exception as e:
+    print(f"⚠️ Could not load yolo26n-seg.pt. Trying fallback.")
+    yolo_model_base = YOLO("yolo11n-seg.pt")
+
+print("👗 Loading Dress Code Model...")
+DRESSCODE_MODEL_PATH = r"C:\Users\alira\OneDrive\Documents\FYP\BackEnd\runs\detect\dresscode_runs\codewatch_dresscode_v2\weights\best.pt"
+try:
+    dresscode_model = YOLO(DRESSCODE_MODEL_PATH)
+except Exception as e:
+    print(f"⚠️ Could not load dress code model: {e}")
+    dresscode_model = None
+
+COMPLIANT_MALE = {'m-button-down', 'm-formal-trousers', 'm-kurta', 'm-shalwar', 'm-shirts'}
+COMPLIANT_FEMALE = {'w-dress', 'w-dupatta', 'w-eastern-trouser', 'w-kameez', 'w-shalwar'}
+VIOLATION_MALE = {'m-informal-pants', 'm-sleeveless'}
+VIOLATION_FEMALE = {'w-western-shirt', 'w-western-trouser', 'm-sleeveless'}
+NEUTRAL = {'outerwear'}
+
+# Friendly labels for the live overlay (matches the classifications set in add_member).
+# ASCII only — OpenCV's font can't render the "·" used in the web UI.
+CATEGORY_LABELS = {
+    'employee': 'Employee',
+    'employee_admin': 'Employee - Admin',
+    'employee_ssd': 'Employee - SSD',
+    'employee_dept_head': 'Employee - Dept Head',
+    'employee_guard': 'Employee - Guard',
+    'student': 'Student',
+}
+
+track_histories = defaultdict(lambda: defaultdict(lambda: deque(maxlen=50)))
+
+app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+app.prepare(ctx_id=0, det_size=(640, 640))
+
+def load_registry_and_blacklist():
+    global global_registry, global_blacklist
+    with state_lock:
+        print("📡 Refreshing Registry & Blacklist via API...")
+        # Registry
+        try:
+            response = requests.get(GET_EMBEDDINGS_URL, headers=SERVICE_HEADERS, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                new_reg = []
+                for db_id_str, info in data.items():
+                    raw_list = info.get('embeddings')
+                    if not raw_list:
+                        single = info.get('embedding')
+                        raw_list = [single] if single else []
+                    emb_arrays = []
+                    for raw_emb in raw_list:
+                        arr = np.array(raw_emb, dtype=np.float32).flatten()
+                        if arr.shape[0] == 512:
+                            emb_arrays.append(arr)
+                    if emb_arrays:
+                        new_reg.append({
+                            "id": int(db_id_str),
+                            "name": info['name'],
+                            "embeddings": emb_arrays,
+                            "classification": info.get('classification', 'unknown')
+                        })
+                global_registry = new_reg
+                total_emb = sum(len(f['embeddings']) for f in new_reg)
+                print(f"✅ Loaded {len(global_registry)} known faces ({total_emb} embeddings).")
+        except Exception as e:
+            print(f"⚠️ Registry fetch failed: {e}")
+
+        # Blacklist
+        try:
+            response = requests.get(GET_BLACKLIST_URL, headers=SERVICE_HEADERS, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                new_bl = set()
+                for item in data:
+                    if 'person_id' in item:
+                        new_bl.add(int(item['person_id']))
+                    elif 'id' in item:
+                        new_bl.add(int(item['id']))
+                global_blacklist = new_bl
+                print(f"✅ Loaded {len(global_blacklist)} blacklisted individuals.")
+        except Exception as e:
+             pass 
+
+def get_cameras():
+    try:
+        response = requests.get(GET_CAMERAS_URL, headers=SERVICE_HEADERS, timeout=5)
+        if response.status_code == 200:
+            return {cam['camera_id']: cam for cam in response.json() if cam.get('is_active', True)}
+    except Exception as e:
+        print(f"⚠️ Could not fetch cameras: {e}")
+    return {}
+
+def cosine_similarity(target_emb, db_matrix):
+    target = np.array(target_emb, dtype=np.float32).flatten()
+    norm_db = np.linalg.norm(db_matrix, axis=1, keepdims=True)
+    norm_target = np.linalg.norm(target)
+    if norm_target == 0: return np.zeros(db_matrix.shape[0])
+    sims = np.dot(db_matrix, target) / (norm_db.flatten() * norm_target)
+    return sims
+
+def find_match_in_redis(target_emb):
+    """Check Redis global_identity keys for existing matches across cameras."""
+    try:
+        keys = redis_client.keys("global_identity:*")
+        if not keys: return None, 0.0, None
+        
+        cached_identities = []
+        cached_embeddings = []
+        for key in keys:
+            val = redis_client.get(key)
+            if val:
+                data = json.loads(val)
+                emb = data.get('embedding')
+                if emb:  # skip entries cached without an embedding (would make np.array ragged)
+                    cached_identities.append((data['id'], data['name']))
+                    cached_embeddings.append(emb)
+                    
+        if cached_embeddings:
+            db_matrix = np.array(cached_embeddings)
+            sims = cosine_similarity(target_emb, db_matrix)
+            best_idx = np.argmax(sims)
+            max_score = sims[best_idx]
+            
+            if max_score > PARAMS["similarity_threshold"]:
+                pid, name = cached_identities[best_idx]
+                return pid, float(max_score), name
+    except Exception as e:
+        print(f"Redis match error: {e}")
+    return None, 0.0, None
+
+def find_match_in_db(target_emb):
+    """Check local DB cache (global_registry); score against each person's BEST embedding."""
+    with state_lock:
+        if not global_registry:
+            return None, 0.0, "Unknown", "unknown"
+
+        all_rows = []
+        owner = []
+        for idx, f in enumerate(global_registry):
+            for emb in f['embeddings']:
+                all_rows.append(emb)
+                owner.append(idx)
+
+        if not all_rows:
+            return None, 0.0, "Unknown", "unknown"
+
+        db_matrix = np.array(all_rows)
+        sims = cosine_similarity(target_emb, db_matrix)
+        thr = PARAMS["similarity_threshold"]
+
+        # Every embedding row scoring above the threshold is a candidate.
+        above = [i for i in range(len(sims)) if sims[i] > thr]
+        if not above:
+            return None, 0.0, "Unknown", "unknown"
+
+        # Prefer a real, named identity over an auto-registered "John Doe" (classification
+        # 'unknown'), so a freshly added person wins over their leftover unknown record.
+        named = [i for i in above if global_registry[owner[i]].get('classification', 'unknown') != 'unknown']
+        pool = named if named else above
+        best_row = max(pool, key=lambda i: sims[i])
+        max_score = float(sims[best_row])
+        match = global_registry[owner[best_row]]
+        return match['id'], max_score, match['name'], match.get('classification', 'unknown')
+
+    return None, 0.0, "Unknown", "unknown"
+
+def numpy_to_base64(img):
+    _, buffer = cv2.imencode('.jpg', img)
+    return base64.b64encode(buffer).decode('utf-8')
+
+class CameraThread(threading.Thread):
+    def __init__(self, camera_data):
+        super().__init__()
+        self.camera_data = camera_data
+        self.camera_id = camera_data['camera_id']
+        self.name = camera_data['name']
+        self.stream_url = camera_data['stream_url']
+        self.running = True
+        
+        print(f"[{self.camera_id}] Initializing YOLO & DeepSort...")
+        self.model = YOLO("yolo26n-seg.pt") if os.path.exists("yolo26n-seg.pt") else YOLO("yolo11n-seg.pt")
+        self.tracker = DeepSort(max_age=30, n_init=3)
+        self.unknown_track_timers = {} 
+        self.pending_registrations = {}  # {track_id: person_id}
+        self.registration_in_progress = set()
+        self.save_counter = 0
+        self.fps_history = deque(maxlen=10)
+        self.cap = None
+        self.last_frame_ts = time.time()
+        self.STALL_TIMEOUT = 10  # seconds with no frame ⇒ read() is wedged (USB drop); reset capture
+
+        # Dashboard frame path. Vite's dev server serves /live_feed_<camera_id>.jpg
+        # case-sensitively, but Windows' filesystem is case-insensitive: if a stale
+        # file differing only in case already exists (e.g. live_feed_cam1.jpg from an
+        # old run), cv2.imwrite reuses that dir entry and keeps its old-case name, so
+        # the browser request for live_feed_Cam1.jpg never matches. Purge any such
+        # case-variant once at startup so the file is (re)created with the exact case.
+        self.out_path = os.path.join(OUTPUT_DIR, f"live_feed_{self.camera_id}.jpg")
+        self._purge_case_variants(self.out_path)
+
+    def _purge_case_variants(self, path):
+        folder, target = os.path.dirname(path), os.path.basename(path)
+        try:
+            for existing in os.listdir(folder):
+                if existing.lower() == target.lower() and existing != target:
+                    try:
+                        os.remove(os.path.join(folder, existing))
+                        print(f"[{self.camera_id}] Removed stale case-variant feed file: {existing}")
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+
+    def async_post(self, url, data):
+        threading.Thread(target=lambda: requests.post(url, json=data, headers=SERVICE_HEADERS, timeout=2), daemon=True).start()
+
+    def register_unknown_async(self, track_id, embedding, snapshot, camera_id):
+        if track_id in self.registration_in_progress:
+            return
+        self.registration_in_progress.add(track_id)
+        def do_register():
+            try:
+                resp = requests.post(REGISTER_UNKNOWN_URL, json={
+                    "embedding": embedding,
+                    "snapshot": snapshot,
+                    "camera_id": camera_id
+                }, headers=SERVICE_HEADERS, timeout=3)
+                if resp.status_code == 200 or resp.status_code == 201:
+                    data = resp.json()
+                    self.pending_registrations[track_id] = {
+                        "id": data.get("person_id"),
+                        "name": data.get("name", "Unknown"),
+                        "is_known": data.get("is_known", False),
+                        "classification": data.get("classification", "unknown"),
+                    }
+            except Exception as e:
+                print(f"Registration failed: {e}")
+            finally:
+                self.registration_in_progress.discard(track_id)
+        threading.Thread(target=do_register, daemon=True).start()
+
+    def _resolve_webcam_index(self, requested):
+        # DirectShow device indices are unstable while the OBS Virtual Camera is registered:
+        # it can occupy index 0 or 1 between runs and only ever emits a standby logo, never
+        # the real webcam. Resolve to the physical camera by NAME, skipping any OBS/virtual
+        # device. pygrabber enumerates devices in the same order cv2.CAP_DSHOW uses. Falls
+        # back to the requested index if enumeration is unavailable.
+        try:
+            from pygrabber.dshow_graph import FilterGraph
+            names = FilterGraph().get_input_devices()
+        except Exception:
+            return requested
+        physical = [i for i, n in enumerate(names)
+                    if 'obs' not in n.lower() and 'virtual' not in n.lower()]
+        if not physical:
+            return requested
+        chosen = requested if requested in physical else physical[0]
+        label = names[chosen] if chosen < len(names) else '?'
+        if chosen != requested:
+            was = names[requested] if requested < len(names) else 'n/a'
+            print(f"[{self.camera_id}] Webcam index {requested} ('{was}') isn't a physical camera; using index {chosen} ('{label}').")
+        else:
+            print(f"[{self.camera_id}] Using webcam index {chosen} ('{label}').")
+        return chosen
+
+    def _open_capture(self):
+        # Webcam → integer index (resolved to the physical camera by name); RTSP/NVR/MediaMTX → URL via FFmpeg (TCP forced at top of file).
+        if str(self.stream_url).isdigit():
+            idx = self._resolve_webcam_index(int(self.stream_url))
+            cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            return cap
+        return cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
+
+    def _stamp_heartbeat(self):
+        # Tell the backend this camera is alive right now, at most once every 5s.
+        now = time.time()
+        if now - getattr(self, '_last_heartbeat_post', 0) < 5:
+            return
+        self._last_heartbeat_post = now
+        try:
+            self.async_post(CAMERA_HEARTBEAT_URL, {"camera_id": self.camera_id})
+        except Exception:
+            pass
+
+    def force_stop(self):
+        # Stop the thread AND release the capture so a cap.read() wedged on a dropped USB camera
+        # unblocks immediately — otherwise self.running=False alone never takes effect and the
+        # shutdown join() hangs forever.
+        self.running = False
+        try:
+            if self.cap is not None:
+                self.cap.release()
+        except Exception:
+            pass
+
+    def _stall_watchdog(self):
+        # cap.read() on a DSHOW webcam BLOCKS (never returns) if the USB device drops mid-stream, so
+        # the main loop can't notice and the supervisor still sees the thread as alive. Watch the
+        # last-frame timestamp from this side thread; if it goes stale, release the capture to unblock
+        # the wedged read() so the loop's own reopen path can recover.
+        while self.running:
+            time.sleep(2)
+            if not self.running or self.cap is None:
+                continue
+            if time.time() - self.last_frame_ts > self.STALL_TIMEOUT:
+                print(f"⚠️ [{self.camera_id}] No frames for {self.STALL_TIMEOUT}s — resetting capture (camera may have dropped).")
+                self.last_frame_ts = time.time()  # give the reopen a chance before firing again
+                try:
+                    self.cap.release()
+                except Exception:
+                    pass
+
+    def run(self):
+        print(f"🚀 Camera {self.name} ({self.camera_id}) connected at {self.stream_url}")
+        
+        # Webcam index vs RTSP/NVR/MediaMTX URL — see _open_capture (RTSP forced over TCP).
+        cap = self._open_capture()
+        self.cap = cap
+        self.last_frame_ts = time.time()
+        threading.Thread(target=self._stall_watchdog, daemon=True).start()
+        frame_count = 0
+        frame_skip = 3 if self.camera_id in ["CAM-002", "CAM-003"] else 1
+        read_failures = 0
+        # A freshly (re)opened DSHOW webcam needs a moment before it delivers frames — its
+        # first reads come back empty. Tolerate a short burst of empty reads (warm-up, or a
+        # transient hiccup) before declaring the feed dropped; otherwise that very first
+        # warm-up miss triggers an endless release → 5s sleep → reopen loop that never lets
+        # the camera spin up.
+        WARMUP_GRACE = 80  # ~4s of empty reads at 0.05s per poll
+
+        while self.running:
+            success, frame = cap.read()
+            if not success or frame is None:
+                if not self.running:
+                    break
+                read_failures += 1
+                if read_failures < WARMUP_GRACE:
+                    time.sleep(0.05)
+                    continue
+                print(f"🔄 [{self.camera_id}] Video feed dropped, retrying in 5 seconds...")
+                cap.release()
+                time.sleep(5)
+                cap = self._open_capture()
+                self.cap = cap
+                self.last_frame_ts = time.time()
+                read_failures = 0
+                continue
+            read_failures = 0
+            self.last_frame_ts = time.time()
+
+            frame_count += 1
+            self._stamp_heartbeat()
+            if frame_count % frame_skip != 0:
+                continue
+
+            start_time = time.time()
+
+            # 1. DETECT
+            clean_frame = frame.copy()
+            
+            skip_dresscode = False
+            if len(self.fps_history) == 10:
+                avg_fps = sum(self.fps_history) / 10.0
+                if avg_fps < 5.0 and not getattr(self, 'skip_dresscode', False):
+                    print(f"WARNING: {self.camera_id} FPS {avg_fps:.1f} - skipping dress code")
+                    self.skip_dresscode = True
+                elif avg_fps > 10.0 and getattr(self, 'skip_dresscode', False):
+                    self.skip_dresscode = False
+            skip_dresscode = getattr(self, 'skip_dresscode', False)
+            
+            results = self.model(frame, conf=PARAMS["conf_threshold"], classes=0, verbose=False)
+            detections = []
+            
+            if len(results) > 0:
+                for box in results[0].boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                    w, h = x2 - x1, y2 - y1
+                    conf = float(box.conf[0].cpu().numpy())
+                    
+                    detections.append(([x1, y1, w, h], conf, 'person', None))
+                    
+            # 2. TRACK
+            tracks = self.tracker.update_tracks(detections, frame=frame)
+            person_count = 0
+            tracking_frame_to_save = None
+            tracking_frame_path = None
+            
+            for track in tracks:
+                if not track.is_confirmed(): continue
+                person_count += 1
+                
+                ltrb = track.to_ltrb()
+                x1, y1, x2, y2 = int(ltrb[0]), int(ltrb[1]), int(ltrb[2]), int(ltrb[3])
+                track_id = track.track_id
+                
+                # Append to track histories
+                center_x = int((x1 + x2) / 2)
+                center_y = int((y1 + y2) / 2)
+                track_histories[self.camera_id][track_id].append((center_x, center_y))
+                
+                # Optimization: Track-then-identify
+                needs_insightface = False
+                if not hasattr(track, 'identity'):
+                    needs_insightface = True
+                    track.frames_since_check = 0
+                elif not track.identity.get('confirmed'):
+                    needs_insightface = True
+                elif track.identity.get('name') == "Unknown" or track.identity.get('classification', 'unknown') == 'unknown':
+                    # Also re-check auto-registered "John Doe" tracks, so they upgrade to a
+                    # real identity once that person has been added/promoted in the system.
+                    if not hasattr(track, 'frames_since_check'):
+                        track.frames_since_check = 0
+                    track.frames_since_check += 1
+                    if track.frames_since_check > 30:
+                        needs_insightface = True
+                        track.frames_since_check = 0
+                        
+                current_emb = None
+                if needs_insightface:
+                    # Expand crop by 30% for better context
+                    h, w = y2 - y1, x2 - x1
+                    pad_h, pad_w = int(h * 0.3), int(w * 0.3)
+                    crop_y1 = max(0, y1 - pad_h)
+                    crop_y2 = min(frame.shape[0], y2 + pad_h)
+                    crop_x1 = max(0, x1 - pad_w)
+                    crop_x2 = min(frame.shape[1], x2 + pad_w)
+                    person_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
+                    if person_crop.size > 0:
+                        def _emb_from(img):
+                            with insightface_lock:
+                                fs = app.get(img)
+                            if not fs:
+                                return None
+                            fs.sort(key=lambda x: (x.bbox[2]-x.bbox[0]) * (x.bbox[3]-x.bbox[1]), reverse=True)
+                            return fs[0].embedding.tolist()
+
+                        # Upright first.
+                        current_emb = _emb_from(person_crop)
+
+                        # If the upright crop doesn't match a known person, retry rotated copies —
+                        # handles upside-down / sideways captures that would otherwise become a new "John Doe".
+                        matched_known = False
+                        if current_emb is not None:
+                            _pid, _s, _n, _c = find_match_in_db(current_emb)
+                            matched_known = bool(_pid and _c != 'unknown')
+                        if not matched_known:
+                            for _rot in (cv2.ROTATE_180, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+                                _emb = _emb_from(cv2.rotate(person_crop, _rot))
+                                if _emb is None:
+                                    continue
+                                if current_emb is None:
+                                    current_emb = _emb
+                                _pid, _s, _n, _c = find_match_in_db(_emb)
+                                if _pid and _c != 'unknown':
+                                    current_emb = _emb   # this orientation matched a known person — use it
+                                    break
+                            
+                # Identity Resolution
+                matched_name = "Unknown"
+                matched_id = None
+                matched_classification = "unknown"
+                
+                if current_emb is not None:
+                    # Check the full DB registry (knows each person's classification) AND the
+                    # Redis handover cache. Prefer a REAL named identity from the DB so that the
+                    # moment a person is added/promoted they stop resolving to their old
+                    # auto-registered "John Doe" record — even if that record still matches.
+                    db_pid, db_score, db_name, db_class = find_match_in_db(current_emb)
+                    r_pid, r_score, r_name = find_match_in_redis(current_emb)
+
+                    if db_pid and db_class != 'unknown':
+                        if not hasattr(track, 'identity') or track.identity.get('id') != db_pid:
+                            print(f"🟢 {self.camera_id}: Identified {db_name} (score: {db_score:.2f})")
+                        track.identity = {"id": db_pid, "name": db_name, "confirmed": True, "classification": db_class}
+                        matched_name = db_name
+                        matched_id = db_pid
+                        matched_classification = db_class
+                    elif r_pid:
+                        if not hasattr(track, 'identity') or track.identity.get('id') != r_pid:
+                            print(f"🤝 HANDOVER: {r_name} moved to {self.camera_id}")
+                        track.identity = {"id": r_pid, "name": r_name, "confirmed": True, "classification": "known"}
+                        matched_name = r_name
+                        matched_id = r_pid
+                        matched_classification = "known"
+                    elif db_pid:
+                        track.identity = {"id": db_pid, "name": db_name, "confirmed": True, "classification": db_class}
+                        matched_name = db_name
+                        matched_id = db_pid
+                        matched_classification = db_class
+                            
+
+
+                elif hasattr(track, 'identity'):
+                    matched_name = track.identity.get("name", "Unknown")
+                    matched_id = track.identity.get("id")
+                    matched_classification = track.identity.get("classification", "unknown")
+
+                # Only refresh the cross-camera identity cache when we actually computed an embedding
+                # this frame. Caching an empty list poisons find_match_in_redis (it builds a ragged
+                # np.array that raises and silently returns no match), breaking handover. When there's
+                # no fresh embedding we just leave the previous good cache entry (30s TTL) in place.
+                if matched_id and matched_name != "Unknown" and current_emb:
+                    try:
+                        redis_data = json.dumps({
+                            "camera_id": self.camera_id,
+                            "track_id": track_id,
+                            "last_seen_timestamp": time.time(),
+                            "name": matched_name,
+                            "id": matched_id,
+                            "embedding": current_emb,
+                            "confidence": 1.0
+                        })
+                        redis_client.setex(f"global_identity:{matched_id}", 30, redis_data)
+                    except Exception as e:
+                        print(f"Redis write error: {e}")
+                    
+                # Movement Logging Tracker
+                track_identifier = matched_id if matched_id else f"unknown_{track_id}"
+                if self.camera_id not in camera_active_persons:
+                    camera_active_persons[self.camera_id] = {}
+                    
+                if track_identifier not in camera_active_persons[self.camera_id]:
+                    # Only log movement for a real, DB-backed identity. Unidentified tracks use a
+                    # synthetic "unknown_<track_id>" id that isn't a TrackedPerson PK, so the
+                    # log_movement view's TrackedPerson.objects.get(id=...) would raise and return
+                    # 400. Such tracks are logged later (under their real id) once auto-registration
+                    # resolves them.
+                    if matched_id:
+                        self.async_post(LOG_MOVEMENT_URL, {
+                            "person_id": matched_id,
+                            "camera_id": self.camera_id,
+                            "action": "enter"
+                        })
+                    
+                camera_active_persons[self.camera_id][track_identifier] = time.time()
+                    
+                # Dress code check
+                detected_clothes = []
+                is_violation = False
+                is_compliant = True
+                violation_classes = []
+                
+                # Expand crop by 30% for better context
+                h, w = y2 - y1, x2 - x1
+                pad_h, pad_w = int(h * 0.3), int(w * 0.3)
+                crop_y1 = max(0, y1 - pad_h)
+                crop_y2 = min(frame.shape[0], y2 + pad_h)
+                crop_x1 = max(0, x1 - pad_w)
+                crop_x2 = min(frame.shape[1], x2 + pad_w)
+                track_crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
+                
+                if dresscode_model and track_crop.size > 0 and not skip_dresscode:
+                    dc_results = dresscode_model(track_crop, conf=0.5, verbose=False)
+                    for r in dc_results:
+                        for box in r.boxes:
+                            cls_id = int(box.cls[0].item())
+                            cls_name = dresscode_model.names[cls_id]
+                            detected_clothes.append(cls_name)
+                    
+                    if detected_clothes:
+                        m_count = sum(1 for c in detected_clothes if c.startswith('m-'))
+                        w_count = sum(1 for c in detected_clothes if c.startswith('w-'))
+                        
+                        gender = 'male' if m_count >= w_count else 'female'
+                        
+                        if gender == 'male':
+                            violation_classes = [c for c in detected_clothes if c in VIOLATION_MALE]
+                        else:
+                            violation_classes = [c for c in detected_clothes if c in VIOLATION_FEMALE]
+                            
+                        if violation_classes:
+                            is_violation = True
+                            is_compliant = False
+                            
+                        if is_violation:
+                            now = time.time()
+                            dc_key = (self.camera_id, track_id, "dresscode")
+                            last_logged = violation_last_logged.get(dc_key, 0)
+                            if (now - last_logged) > PARAMS["violation_cooldown"]:
+                                violation_last_logged[dc_key] = now
+                                print(f"DRESS CODE VIOLATION: {matched_name} on {self.camera_id} - detected {violation_classes}")
+                                snap_b64 = numpy_to_base64(track_crop)
+                                log_data = {
+                                    "person_id": matched_id if matched_name != "Unknown" else None,
+                                    "type": f"Dress Code Violation ({', '.join(violation_classes)})",
+                                    "conf": 1.0,
+                                    "snapshot": snap_b64,
+                                    "camera_id": self.camera_id
+                                }
+                                self.async_post(LOG_VIOLATION_URL, log_data)
+
+                # Unknown Handling & Logging
+                if matched_name == "Unknown":
+                    now = time.time()
+                    if track_id not in self.unknown_track_timers:
+                        self.unknown_track_timers[track_id] = now
+                    
+                    first_seen = self.unknown_track_timers[track_id]
+                    duration = now - first_seen
+                    
+                    # Store Unknown in Redis
+                    if current_emb:
+                        try:
+                            snap_b64 = numpy_to_base64(track_crop) if track_crop.size > 0 else ""
+                            u_data = json.dumps({
+                                "first_seen": first_seen,
+                                "last_seen": now,
+                                "embedding": current_emb,
+                                "snapshot_base64": snap_b64
+                            })
+                            redis_client.setex(f"unknown:{self.camera_id}:{track_id}", 300, u_data)
+                        except Exception as e:
+                            pass
+
+                    # Unauthorized access: register first (independent of cooldown), then act on the result.
+                    if duration > PARAMS["unknown_time_threshold"]:
+                        snap_b64 = numpy_to_base64(track_crop) if track_crop.size > 0 else ""
+
+                        # Kick off auto-registration once per track (the server rate-limits per camera).
+                        if current_emb and not getattr(track, 'registered', False) and track_id not in self.pending_registrations:
+                            self.register_unknown_async(track_id, current_emb, snap_b64, self.camera_id)
+
+                        # Once the backend returns an identity, act on it.
+                        if track_id in self.pending_registrations:
+                            reg = self.pending_registrations.pop(track_id)
+                            person_id = reg["id"]
+                            name = reg["name"]
+                            is_known = reg.get("is_known", False)
+                            classification = reg.get("classification", "unknown")
+                            track.identity = {"id": person_id, "name": name, "confirmed": True, "classification": classification}
+                            track.registered = True
+                            matched_id = person_id
+                            matched_name = name
+                            matched_classification = classification
+
+                            try:
+                                redis_data = json.dumps({
+                                    "camera_id": self.camera_id,
+                                    "track_id": track_id,
+                                    "last_seen_timestamp": time.time(),
+                                    "name": name,
+                                    "id": person_id,
+                                    "embedding": current_emb,
+                                    "confidence": 1.0 if is_known else 0.0
+                                })
+                                redis_client.setex(f"global_identity:{person_id}", 30, redis_data)
+                            except Exception as e:
+                                pass
+
+                            # Only a genuinely-new unknown is an Unauthorized Access violation.
+                            # A backend "known" match = a registered person the live matcher just missed — don't flag them.
+                            if not is_known:
+                                last_logged = violation_last_logged.get((self.camera_id, track_id), 0)
+                                if (now - last_logged) > PARAMS["violation_cooldown"]:
+                                    violation_last_logged[(self.camera_id, track_id)] = now
+                                    print(f"🚨 VIOLATION: Unauthorized person on {self.camera_id} → {name}")
+                                    self.async_post(LOG_VIOLATION_URL, {
+                                        "person_id": person_id,
+                                        "type": "Unauthorized Access",
+                                        "conf": 0.0,
+                                        "snapshot": snap_b64,
+                                        "camera_id": self.camera_id
+                                    })
+                            else:
+                                print(f"✅ Recovered identity on {self.camera_id}: {name} (was about to be flagged unknown)")
+
+                            self.async_post(LOG_MOVEMENT_URL, {
+                                "person_id": person_id,
+                                "camera_id": self.camera_id,
+                                "action": "enter"
+                            })
+
+                            if self.camera_id not in camera_active_persons:
+                                camera_active_persons[self.camera_id] = {}
+                            camera_active_persons[self.camera_id][person_id] = time.time()
+                else:
+                    if track_id in self.unknown_track_timers:
+                        del self.unknown_track_timers[track_id]
+                        
+                    with state_lock:
+                        if matched_id in global_blacklist:
+                            now = time.time()
+                            last_logged = violation_last_logged.get((self.camera_id, track_id), 0)
+                            if (now - last_logged) > PARAMS["violation_cooldown"]:
+                                print(f"🚨 VIOLATION: Blacklisted Person Detected on {self.camera_id} ({matched_name})")
+                                violation_last_logged[(self.camera_id, track_id)] = now
+                                snap_b64 = numpy_to_base64(track_crop) if track_crop.size > 0 else ""
+                                log_data = {
+                                    "person_id": matched_id,
+                                    "type": "Blacklisted Person Detected",
+                                    "conf": 1.0,
+                                    "snapshot": snap_b64,
+                                    "camera_id": self.camera_id
+                                }
+                                self.async_post(LOG_VIOLATION_URL, log_data)
+
+                # Visualization
+                color = (0, 0, 255) # Red
+                label = "UNKNOWN"
+                trail_color = (0, 0, 255) # Red
+                thickness = 2
+                
+                if matched_name != "Unknown":
+                    with state_lock:
+                        if matched_id in global_blacklist:
+                            color = (128, 0, 128) # Purple
+                            label = f"BLACKLISTED: {matched_name}"
+                            trail_color = (128, 0, 128) # Purple
+                        elif matched_classification == 'visitor' or "visitor" in matched_name.lower():
+                            color = (255, 200, 0) # Cyan/Blue
+                            label = f"VISITOR: {matched_name}"
+                            trail_color = (255, 200, 0) # Cyan/Blue
+                        else:
+                            color = (0, 255, 0) # Green
+                            cat = CATEGORY_LABELS.get(matched_classification)
+                            label = f"{matched_name} ({cat})" if cat else matched_name
+                            trail_color = (0, 255, 0) # Green
+                            if is_violation:
+                                trail_color = (0, 165, 255) # Orange
+                
+                if highlight_person_id and highlight_person_id == matched_id:
+                    color = (0, 255, 255) # Yellow
+                    label = f">>> TRACKING: {matched_name} <<<"
+                    trail_color = (0, 255, 255) # Yellow
+                    thickness = 4
+                            
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+                cv2.putText(frame, label, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, thickness)
+                
+                if detected_clothes:
+                    if is_violation:
+                        dc_text = f"Dress: VIOLATION ({', '.join(violation_classes)})"
+                        cv2.putText(frame, dc_text, (x1, y1+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    else:
+                        dc_text = f"Dress: Compliant ({', '.join(detected_clothes)})"
+                        cv2.putText(frame, dc_text, (x1, y1+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                        
+                pts = list(track_histories[self.camera_id][track_id])
+                for i in range(1, len(pts)):
+                    line_thickness = 3 if (highlight_person_id and highlight_person_id == matched_id) else max(1, int(2 * (i / len(pts))))
+                    cv2.line(frame, pts[i-1], pts[i], trail_color, line_thickness)
+
+                if highlight_person_id and highlight_person_id == matched_id:
+                    tracking_frame = clean_frame.copy()
+                    overlay = tracking_frame.copy()
+                    cv2.rectangle(overlay, (0,0), (tracking_frame.shape[1], tracking_frame.shape[0]), (0,0,0), -1)
+                    tracking_frame = cv2.addWeighted(overlay, 0.5, tracking_frame, 0.5, 0)
+                    
+                    cv2.rectangle(tracking_frame, (x1, y1), (x2, y2), (0, 255, 255), 3)
+                    cv2.putText(tracking_frame, f"TRACKING: {matched_name}", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 3)
+                    
+                    for i in range(1, len(pts)):
+                        cv2.line(tracking_frame, pts[i-1], pts[i], (0, 255, 255), max(1, int(2 * (i / len(pts)))))
+                        
+                    tracking_frame_to_save = tracking_frame
+                    tracking_frame_path = os.path.join(OUTPUT_DIR, f"live_feed_track_{matched_id}.jpg")
+                    
+                    try:
+                        redis_client.setex(f"track_camera:{matched_id}", 30, self.camera_id)
+                    except:
+                        pass
+
+            # Cleanup inactive persons
+            now = time.time()
+            if self.camera_id in camera_active_persons:
+                to_remove = []
+                for pid, last_seen in camera_active_persons[self.camera_id].items():
+                    if now - last_seen > 5.0:
+                        # Skip synthetic "unknown_<track_id>" ids — they were never logged on enter
+                        # (no DB row), so an exit POST would only 400. Real ids log normally.
+                        if not str(pid).startswith("unknown_"):
+                            self.async_post(LOG_MOVEMENT_URL, {
+                                "person_id": pid,
+                                "camera_id": self.camera_id,
+                                "action": "exit"
+                            })
+                        to_remove.append(pid)
+                for pid in to_remove:
+                    del camera_active_persons[self.camera_id][pid]
+
+            # Draw Overlay
+            fps = 1.0 / (time.time() - start_time + 1e-6)
+            self.fps_history.append(fps)
+            cv2.putText(frame, f"{self.name} | FPS: {fps:.1f} | People: {person_count}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            
+            # Save Frame
+            self.save_counter += 1
+            
+            # Always save tracking frame (for NotificationDetailsPage live feed)
+            if tracking_frame_to_save is not None:
+                try:
+                    cv2.imwrite(tracking_frame_path, tracking_frame_to_save)
+                except:
+                    pass
+
+            # Save dashboard frame every 3rd frame (for dashboard performance)
+            if self.save_counter % 3 == 0:
+                try:
+                    cv2.imwrite(self.out_path, frame)
+                except:
+                    pass
+                
+        cap.release()
+        print(f"🛑 Thread {self.camera_id} stopped.")
+
+class WatcherThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self.running = True
+        self.last_highlight_person_id = None
+
+    def run(self):
+        global highlight_person_id
+        print("👁️ Watcher Thread started.")
+        while self.running:
+            load_registry_and_blacklist()
+            
+            if highlight_person_id != self.last_highlight_person_id:
+                try:
+                    old_files = glob.glob(os.path.join(OUTPUT_DIR, "live_feed_track_*.jpg"))
+                    for f in old_files:
+                        os.remove(f)
+                except Exception as e:
+                    print(f"Error cleaning up old track frames: {e}")
+                self.last_highlight_person_id = highlight_person_id
+                
+            cameras = get_cameras()
+            for cid, cdata in cameras.items():
+                if cid not in active_camera_threads or not active_camera_threads[cid].is_alive():
+                    print(f"🎥 Detected new or crashed camera: {cid}. Starting thread.")
+                    t = CameraThread(cdata)
+                    active_camera_threads[cid] = t
+                    t.start()
+            
+            for _ in range(30):
+                if not self.running: break
+                try:
+                    val = redis_client.get("track_highlight")
+                    highlight_person_id = int(val) if val else None
+                except Exception:
+                    pass
+                time.sleep(2)
+
+active_camera_threads = {}
+
+if __name__ == "__main__":
+    print("====================================")
+    print("🛡️ Multi-Camera tracking system starting...")
+    print("====================================")
+    
+    load_registry_and_blacklist()
+    
+    watcher = WatcherThread()
+    watcher.start()
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n🛑 Graceful Shutdown Initiated...")
+        watcher.running = False
+        for cid, t in active_camera_threads.items():
+            t.force_stop()   # releases the capture so a wedged read() unblocks instead of hanging join()
+
+        watcher.join(timeout=5)
+        for cid, t in active_camera_threads.items():
+            t.join(timeout=5)
+
+        try:
+            redis_client.close()
+        except:
+            pass
+        print("✅ Shutdown complete.")

@@ -1,0 +1,25 @@
+/* StatCard Custom Styles */
+/* Additional custom styles for StatCard component */
+/* Most styling is handled by Tailwind CSS classes in the component */
+
+/* Custom chart gradient styles */
+.stat-card-chart-gradient {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Responsive Design Overrides */
+@media (max-width: 640px) {
+  /* Mobile-specific adjustments if needed */
+  .stat-card-mobile {
+    height: auto;
+    min-height: 148px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .stat-card-print {
+    break-inside: avoid;
+  }
+}
+

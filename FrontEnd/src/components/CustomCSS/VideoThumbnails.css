@@ -1,0 +1,48 @@
+/* VideoThumbnails.css */
+
+.scroll-container {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.scroll-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 4px;
+}
+
+.camera-thumbnails {
+    display: flex;
+    gap: 1rem;
+    width: max-content;
+}
+
+.camera-thumbnail {
+    width: 128px;
+    height: 128px;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: #f3f3f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #555;
+    transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.camera-thumbnail:hover {
+    transform: scale(1.05);
+    border-color: #007bff;
+}

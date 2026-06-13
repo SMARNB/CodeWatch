@@ -1,0 +1,98 @@
+# ============================================================================
+#  CodeWatch — author/maintainer: SMARNB
+#  Publish ONLY FrontEnd/ + BackEnd/ (the application source). Everything else
+#  at the repo root stays PRIVATE / LOCAL — launcher, certs (PRIVATE KEYS!),
+#  mediamtx, docs, Diagrams, ngrok, root tooling, .claude session data.
+# ============================================================================
+/*
+!/.gitignore
+!/FrontEnd/
+!/BackEnd/
+
+# Explicit (also covered by the whitelist above) — never share these:
+/launcher/
+/certs/
+/mediamtx/
+/docs/
+/Diagrams/
+/.claude/
+/.claudeignore
+/ngrok.exe
+
+# ---- Claude / AI-assistant artifacts — never publish (any file/dir whose name contains 'claude') ----
+*claude*
+*Claude*
+*CLAUDE*
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# ---- Python / Django ----
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# ---- Secrets (NEVER commit) ----
+.env
+*.env
+!.env.example
+
+# ---- Django runtime data (not code) ----
+/BackEnd/media/
+/BackEnd/staticfiles/
+
+# ---- Node / React (Vite) ----
+node_modules/
+dist/
+build/
+.vite/
+
+# ---- AI models / weights / training output ----
+*.npy
+*.pt
+*.onnx
+*.pth
+*.engine
+/BackEnd/runs/
+
+# ---- Datasets & training/debug image folders (not source code) ----
+/BackEnd/FYP.v5i.yolo26/
+/BackEnd/dian_dataset/
+/BackEnd/sleeveless_extracted/
+/BackEnd/NewDataset/
+/BackEnd/dataset/
+/BackEnd/debug_frames/
+/BackEnd/demo_faces/
+/BackEnd/faces/
+/BackEnd/training_samples/
+/BackEnd/output_videos/
+/BackEnd/videos/
+
+# ---- All raster images (datasets, frames, face snapshots, live feeds). SVGs kept for UI. ----
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
+*.tiff
+
+# ---- Videos / CCTV footage ----
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.dav
+
+# ---- Large downloadable binaries (text configs like mediamtx.yml stay tracked) ----
+*.exe
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
