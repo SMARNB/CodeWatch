@@ -96,3 +96,6 @@ build/
 # ---- OS ----
 .DS_Store
 Thumbs.db
+
+# ---- Local backups (e.g. FinalSystem.py.bak, api/views.py.bak) — keep local, don't publish ----
+*.bak

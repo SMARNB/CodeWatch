@@ -242,3 +242,37 @@ class NotificationState(models.Model):
 
     class Meta:
         unique_together = ('user_key', 'notification')
+
+
+class DressCodeRule(models.Model):
+    """Admin-editable dress-code policy. One row per clothing class emitted by the dress-code
+    YOLO model. `status` marks the class compliant / violation / neutral, scoped to a `gender`
+    (male, female, or any). Replaces the formerly-hardcoded COMPLIANT_*/VIOLATION_*/NEUTRAL sets
+    in FinalSystem.py, which now loads this table via the API and refreshes it periodically.
+
+    FinalSystem rebuilds its violation sets as:
+        VIOLATION_MALE   = {class | status=='violation' and gender in ('male',   'any')}
+        VIOLATION_FEMALE = {class | status=='violation' and gender in ('female', 'any')}
+    so a class that is a violation for both genders (e.g. 'm-sleeveless') uses gender='any'.
+    """
+    STATUS_CHOICES = [
+        ('compliant', 'Compliant'),
+        ('violation', 'Violation'),
+        ('neutral', 'Neutral'),
+    ]
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('any', 'Any'),
+    ]
+
+    clothing_class = models.CharField(max_length=50, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='neutral')
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='any')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['clothing_class']
+
+    def __str__(self):
+        return f"{self.clothing_class} → {self.status} ({self.gender})"

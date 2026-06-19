@@ -17,6 +17,7 @@ import ReportDetailsPage from './pages/ReportDetailsPage';
 import ManageCamerasPage from './pages/ManageCamerasPage';
 import ManagePeoplePage from './pages/ManagePeoplePage';
 import ManageBlacklistPage from './pages/ManageBlacklistPage';
+import ManageDressCodePage from './pages/ManageDressCodePage';
 import LiveTrackPage from './pages/LiveTrackPage';
 import GuardDashboardPage from './pages/GuardDashboardPage';
 import AddVisitorPage from './pages/AddVisitorPage';
@@ -154,6 +155,7 @@ function App() {
               <Route path="/admin/manage-blacklist" element={<ProtectedRoute allowedRoles={['admin', 'department-head']}><ManageBlacklistPage /></ProtectedRoute>} />
               <Route path="/admin/manage-cameras" element={<ProtectedRoute requiredRole="admin"><ManageCamerasPage /></ProtectedRoute>} />
               <Route path="/admin/manage-people" element={<ProtectedRoute allowedRoles={['admin', 'department-head']}><ManagePeoplePage /></ProtectedRoute>} />
+              <Route path="/admin/dress-code" element={<ProtectedRoute allowedRoles={['admin', 'ssd']}><ManageDressCodePage /></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><GenerateAnalyticsPage /></ProtectedRoute>} />
             </Route>

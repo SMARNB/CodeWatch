@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from api.views import run_identity_dedup
+from api.views.dedup import run_identity_dedup
 
 
 class Command(BaseCommand):

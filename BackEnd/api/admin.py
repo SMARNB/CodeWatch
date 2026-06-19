@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     TrackedPerson, ViolationLog, Camera, IncidentReport,
-    Notification, Violation, Feedback, UserProfile, Blacklist, MovementLog, VisitorLog
+    Notification, Violation, Feedback, UserProfile, Blacklist, MovementLog, VisitorLog,
+    DressCodeRule
 )
 
 @admin.register(TrackedPerson)
@@ -60,3 +61,10 @@ class VisitorLogAdmin(admin.ModelAdmin):
     list_display = ('person', 'purpose', 'host_name', 'host_department', 'check_in', 'check_out', 'is_active')
     list_filter = ('is_active', 'host_department')
     search_fields = ('person__name', 'host_name')
+
+@admin.register(DressCodeRule)
+class DressCodeRuleAdmin(admin.ModelAdmin):
+    list_display = ('clothing_class', 'status', 'gender', 'updated_at')
+    list_filter = ('status', 'gender')
+    search_fields = ('clothing_class',)
+    list_editable = ('status', 'gender')

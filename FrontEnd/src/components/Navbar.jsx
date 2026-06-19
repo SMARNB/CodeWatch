@@ -289,6 +289,7 @@ const Navbar = () => {
     { name: 'Manage People', path: '/admin/manage-people', roles: ['admin', 'department-head'] },
     { name: 'Manage Violations', path: '/admin/manage-violations', roles: ['admin', 'ssd', 'department-head'] },
     { name: 'Manage Blacklist', path: '/admin/manage-blacklist', roles: ['admin', 'department-head'] },
+    { name: 'Dress Code', path: '/admin/dress-code', roles: ['admin', 'ssd'] },
     { name: 'Generate Analytics', path: '/analytics', roles: ['admin', 'department-head', 'ssd'] },
     { name: 'Reports', path: '/reports', roles: ['admin', 'ssd', 'department-head'] },
     { name: 'Add Visitor', path: '/guard/add-visitor', roles: ['guard'] },

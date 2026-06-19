@@ -265,8 +265,8 @@ const NotificationDetailsPage = () => {
 
       {/* HEADER BAR */}
       <div className="relative bg-white shadow-sm border-b border-gray-200 w-full h-[80px] z-10 flex items-center px-6 justify-between">
-        <div 
-          className="flex items-center gap-4 cursor-pointer transition-transform hover:scale-105" 
+        <div
+          className="flex items-center gap-4 cursor-pointer transition-transform hover:scale-105"
           style={{ marginLeft: '50px' }}
           onClick={() => {
             const role = localStorage.getItem('userType') || 'admin';
@@ -277,7 +277,7 @@ const NotificationDetailsPage = () => {
         >
           <Logo size="large" showText={false} />
         </div>
-        <h1 
+        <h1
           className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#3f4299] to-[#4f46e5] absolute left-1/2 -translate-x-1/2 cursor-pointer transition-transform hover:scale-[1.02]"
           onClick={() => {
             const role = localStorage.getItem('userType') || 'admin';
@@ -286,7 +286,7 @@ const NotificationDetailsPage = () => {
           }}
           title="Go to Dashboard"
         >
-          Live Tracking Details
+          Live Tracking Violation Details
         </h1>
         <button
           onClick={() => window.close()}
