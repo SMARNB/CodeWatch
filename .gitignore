@@ -7,6 +7,7 @@
 /*
 !/.gitignore
 !/README.md
+!/brag-output/
 !/FrontEnd/
 !/BackEnd/
 
@@ -100,3 +101,9 @@ Thumbs.db
 
 # ---- Local backups (e.g. FinalSystem.py.bak, api/views.py.bak) — keep local, don't publish ----
 *.bak
+
+# ---- CodeWatch launch video: publish ONLY the rendered video + poster (not the composition source) ----
+#      (these !exceptions must sit after the global *.mp4 / *.jpg rules above to take effect)
+/brag-output/*
+!/brag-output/brag.mp4
+!/brag-output/brag.jpg
