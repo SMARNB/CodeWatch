@@ -16,10 +16,9 @@ the person involved):
 ## Demo
 
 [![CodeWatch — launch video](Demo/CodeWatch.jpg)](Demo/CodeWatch-Launch.mp4)
-<video controls width="100%">
-  <source src="https://github.com/user-attachments/assets/b485681e-505e-44dd-8d95-0e2af28d0c22" type="video/mp4">
-  Sorry, your browser doesn't support embedded videos.
-</video>
+<video src="https://github.com/user-attachments/assets/b485681e-505e-44dd-8d95-0e2af28d0c22" controls width="100%"></video>
+
+*Real-time multi-camera detection, liveness anti-spoofing, the modular CV engine, and the live dashboard.*
 
 *Real-time multi-camera detection, liveness anti-spoofing, the modular CV engine, and the live dashboard.*
  
