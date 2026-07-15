@@ -12,6 +12,12 @@ the person involved):
 - **Unauthorized Access** (unregistered person present)
 - **Blacklisted Person Detected**
 
+## Demo
+
+<video src="https://github.com/SMARNB/CodeWatch/raw/liveness-modular-refactor/brag-output/brag.mp4" poster="https://github.com/SMARNB/CodeWatch/raw/liveness-modular-refactor/brag-output/brag.jpg" controls muted loop width="100%"></video>
+
+> ▶︎ If the player doesn't load inline, [**watch `brag.mp4`**](brag-output/brag.mp4) (or see the [poster frame](brag-output/brag.jpg)).
+
 ## Features
 
 - **Person detection & tracking** — YOLO instance segmentation per camera, DeepSort multi-object
