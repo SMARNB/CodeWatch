@@ -14,9 +14,9 @@ the person involved):
 
 ## Demo
 
-<video src="https://github.com/SMARNB/CodeWatch/raw/liveness-modular-refactor/brag-output/brag.mp4" poster="https://github.com/SMARNB/CodeWatch/raw/liveness-modular-refactor/brag-output/brag.jpg" controls muted loop width="100%"></video>
+[![CodeWatch — 20-second launch video](brag-output/brag.jpg)](brag-output/brag.mp4)
 
-> ▶︎ If the player doesn't load inline, [**watch `brag.mp4`**](brag-output/brag.mp4) (or see the [poster frame](brag-output/brag.jpg)).
+▶︎ **[Play the 20-second launch video](brag-output/brag.mp4)** — real-time multi-camera detection, liveness anti-spoofing, and the modular CV engine.
 
 ## Features
 
