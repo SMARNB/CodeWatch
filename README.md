@@ -14,9 +14,17 @@ the person involved):
 
 ## Demo
 
-[![CodeWatch — 20-second launch video](brag-output/brag.jpg)](brag-output/brag.mp4)
+[![CodeWatch — launch video](Demo/CodeWatch.jpg)](Demo/CodeWatch-Launch.mp4)
 
-▶︎ **[Play the 20-second launch video](brag-output/brag.mp4)** — real-time multi-camera detection, liveness anti-spoofing, and the modular CV engine.
+▶︎ **[Play the launch video](Demo/CodeWatch-Launch.mp4)** — real-time multi-camera detection, liveness anti-spoofing, the modular CV engine, and the live dashboard.
+
+### Screens
+
+| Admin dashboard | Analytics |
+|---|---|
+| ![Admin dashboard](Demo/screens/dashboard.png) | ![Analytics](Demo/screens/analytics.png) |
+| **Camera management** | **Login** |
+| ![Camera management](Demo/screens/cameras.png) | ![Login](Demo/screens/login.png) |
 
 ## Features
 
